@@ -21,7 +21,6 @@ REQUIRED_NUMERIC_FIELDS = (
     "trustworthiness",
     "actionability",
     "originality",
-    "risk",
 )
 
 ALLOWED_CATEGORIES = {
@@ -56,11 +55,8 @@ SCORING_RESPONSE_SCHEMA: dict[str, Any] = {
         "trustworthiness": {"type": "integer", "minimum": 0, "maximum": 5},
         "actionability": {"type": "integer", "minimum": 0, "maximum": 5},
         "originality": {"type": "integer", "minimum": 0, "maximum": 5},
-        "risk": {"type": "integer", "minimum": 0, "maximum": 5},
         "category": {"type": "string", "enum": sorted(ALLOWED_CATEGORIES)},
-        "recommended_format": {"type": "string", "enum": sorted(ALLOWED_FORMATS)},
         "overall_score": {"type": "number"},
-        "post_decision": {"type": "string", "enum": sorted(ALLOWED_DECISIONS)},
         "reason_en": {"type": "string"},
         "persian_angle": {"type": "string"},
     },
@@ -73,11 +69,8 @@ SCORING_RESPONSE_SCHEMA: dict[str, Any] = {
         "trustworthiness",
         "actionability",
         "originality",
-        "risk",
         "category",
-        "recommended_format",
         "overall_score",
-        "post_decision",
         "reason_en",
         "persian_angle",
     ],
@@ -165,15 +158,35 @@ def normalize_evaluation(evaluation: dict[str, Any]) -> dict[str, Any]:
 
     if normalized.get("category") not in ALLOWED_CATEGORIES:
         normalized["category"] = "other"
-    if normalized.get("recommended_format") not in ALLOWED_FORMATS:
-        normalized["recommended_format"] = "no_post"
-    if normalized.get("post_decision") not in ALLOWED_DECISIONS:
-        normalized["post_decision"] = infer_post_decision(normalized)
 
+    normalized["risk"] = infer_risk(normalized)
+    normalized["recommended_format"] = infer_recommended_format(normalized)
     normalized["reason_en"] = str(normalized.get("reason_en") or "")
     normalized["persian_angle"] = str(normalized.get("persian_angle") or "")
     normalized["overall_score"] = calculate_overall_score(normalized)
+    normalized["post_decision"] = infer_post_decision(normalized)
     return normalized
+
+
+def infer_risk(score: dict[str, Any]) -> int:
+    risk = 0
+    if score["trustworthiness"] <= 2:
+        risk += 2
+    if score["category"] in {"healthcare", "money_tax", "immigration", "crime_safety"}:
+        risk += 1
+    if score["category"] == "other" and score["actionability"] <= 1:
+        risk += 1
+    return max(0, min(5, risk))
+
+
+def infer_recommended_format(score: dict[str, Any]) -> str:
+    if calculate_overall_score(score) < 12:
+        return "no_post"
+    if score["urgency"] >= 4 and score["actionability"] >= 4:
+        return "carousel"
+    if score["share_save_potential"] >= 4 and score["actionability"] >= 3:
+        return "post"
+    return "story"
 
 
 def infer_post_decision(score: dict[str, Any]) -> str:
