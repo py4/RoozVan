@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -25,8 +25,6 @@ class PipelineConfig:
     selection_limit: int = 5
     minimum_score: float = 12
     include_maybe: bool = True
-    fetch_articles: bool = True
-    article_max_chars: int = 6000
 
 
 @dataclass
@@ -91,13 +89,15 @@ class ArticleExtractionStage:
     name = "article_extraction"
 
     def run(self, result: PipelineResult, config: PipelineConfig) -> PipelineResult:
-        if not config.fetch_articles:
-            return result
-        result.items = enrich_items_with_articles(
-            result.items,
+        enriched_items = enrich_items_with_articles(
+            [item.item for item in result.selected_items],
             timeout=config.timeout,
-            max_chars=config.article_max_chars,
+            max_chars=6000,
         )
+        result.selected_items = [
+            replace(scored_item, item=enriched_item)
+            for scored_item, enriched_item in zip(result.selected_items, enriched_items)
+        ]
         return result
 
 
@@ -165,11 +165,11 @@ def build_default_pipeline() -> Pipeline:
     return Pipeline(
         [
             RecentNewsExtractionStage(),
-            ArticleExtractionStage(),
             EditorialScoringStage(),
             RankingStage(),
             DeduplicationStage(),
             SelectionStage(),
+            ArticleExtractionStage(),
             DraftPlaceholderStage(),
         ]
     )

@@ -39,6 +39,15 @@ class NewsItem:
             "article_readable_without_js": self.article_readable_without_js,
         }
 
+    def to_scoring_dict(self) -> dict[str, str | None]:
+        return {
+            "title": self.title,
+            "description": self.description,
+            "date": self.date,
+            "url": self.url,
+            "image_url": self.image_url,
+        }
+
 
 @dataclass(frozen=True)
 class ScoredItem:

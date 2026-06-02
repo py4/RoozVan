@@ -112,13 +112,25 @@ def calculate_overall_score(score: dict[str, Any]) -> float:
 
 
 def build_prompt(base_prompt: str, item: NewsItem | dict[str, Any]) -> str:
-    item_dict = item.to_dict() if isinstance(item, NewsItem) else item
+    item_dict = scoring_item_dict(item)
     return (
         f"{base_prompt.strip()}\n\n"
         "Candidate item:\n"
         f"{json.dumps(item_dict, ensure_ascii=False, indent=2)}\n\n"
         "Return only one valid JSON object. Do not include markdown, code fences, comments, or extra text."
     )
+
+
+def scoring_item_dict(item: NewsItem | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(item, NewsItem):
+        return item.to_scoring_dict()
+    return {
+        "title": item.get("title"),
+        "description": item.get("description"),
+        "date": item.get("date"),
+        "url": item.get("url"),
+        "image_url": item.get("image_url"),
+    }
 
 
 def parse_json_object(raw_response: str) -> dict[str, Any]:

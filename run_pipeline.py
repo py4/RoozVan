@@ -22,8 +22,6 @@ def main() -> int:
     parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
     parser.add_argument("--post-only", action="store_true", help="Exclude maybe decisions from selected candidates.")
-    parser.add_argument("--skip-article-fetch", action="store_true", help="Score RSS summaries without opening article URLs.")
-    parser.add_argument("--article-max-chars", type=int, default=6000, help="Maximum article text characters sent to scoring.")
     parser.add_argument("--json", action="store_true", help="Print selected candidates as JSON.")
     args = parser.parse_args()
 
@@ -38,8 +36,6 @@ def main() -> int:
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,
         include_maybe=not args.post_only,
-        fetch_articles=not args.skip_article_fetch,
-        article_max_chars=args.article_max_chars,
     )
     result = build_default_pipeline().run(config)
 
@@ -48,10 +44,10 @@ def main() -> int:
         return 0
 
     print(f"Extracted: {len(result.items)}")
-    print(f"Readable without JS: {sum(1 for item in result.items if item.article_readable_without_js)}")
     print(f"Scored: {len(result.scored_items)}")
     print(f"Deduped: {len(result.deduped_items)}")
     print(f"Selected: {len(result.selected_items)}")
+    print(f"Selected readable without JS: {sum(1 for item in result.selected_items if item.item.article_readable_without_js)}")
     print()
     for index, item in enumerate(result.selected_items, start=1):
         evaluation = item.evaluation
