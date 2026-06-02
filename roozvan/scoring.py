@@ -111,7 +111,7 @@ def calculate_overall_score(score: dict[str, Any]) -> float:
     )
 
 
-def build_prompt(base_prompt: str, item: NewsItem | dict[str, str | None]) -> str:
+def build_prompt(base_prompt: str, item: NewsItem | dict[str, Any]) -> str:
     item_dict = item.to_dict() if isinstance(item, NewsItem) else item
     return (
         f"{base_prompt.strip()}\n\n"
@@ -176,7 +176,7 @@ def infer_post_decision(score: dict[str, Any]) -> str:
 def score_item(
     client: OpenRouterClient,
     prompt_template: str,
-    item: NewsItem | dict[str, str | None],
+    item: NewsItem | dict[str, Any],
     *,
     max_tokens: int,
 ) -> dict[str, Any]:
@@ -236,7 +236,7 @@ def score_news_items(
 
 
 def score_items(
-    items: list[dict[str, str | None]],
+    items: list[dict[str, Any]],
     prompt_template: str,
     client: OpenRouterClient,
     *,
@@ -248,7 +248,7 @@ def score_items(
 
 
 def score_items_sequential(
-    items: list[dict[str, str | None]],
+    items: list[dict[str, Any]],
     prompt_template: str,
     client: OpenRouterClient,
     *,

@@ -13,6 +13,8 @@ class NewsItem:
     date: str | None
     url: str | None
     image_url: str | None
+    article_content: str | None = None
+    article_readable_without_js: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "NewsItem":
@@ -22,15 +24,19 @@ class NewsItem:
             date=optional_text(data.get("date")),
             url=optional_text(data.get("url")),
             image_url=optional_text(data.get("image_url")),
+            article_content=optional_text(data.get("article_content")),
+            article_readable_without_js=optional_bool(data.get("article_readable_without_js")),
         )
 
-    def to_dict(self) -> dict[str, str | None]:
+    def to_dict(self) -> dict[str, str | bool | None]:
         return {
             "title": self.title,
             "description": self.description,
             "date": self.date,
             "url": self.url,
             "image_url": self.image_url,
+            "article_content": self.article_content,
+            "article_readable_without_js": self.article_readable_without_js,
         }
 
 
@@ -78,3 +84,17 @@ def optional_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def optional_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes"}:
+            return True
+        if normalized in {"false", "0", "no"}:
+            return False
+    return bool(value)

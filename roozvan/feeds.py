@@ -9,7 +9,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from roozvan.models import NewsItem
 
@@ -187,5 +187,5 @@ def collect_news_items(sources_path: Path, timeout: int) -> list[NewsItem]:
     return output
 
 
-def collect_items(sources_path: Path, timeout: int) -> list[dict[str, str | None]]:
+def collect_items(sources_path: Path, timeout: int) -> list[dict[str, Any]]:
     return [item.to_dict() for item in collect_news_items(sources_path, timeout)]

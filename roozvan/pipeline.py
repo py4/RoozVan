@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Protocol
 
 from openrouter_client import OpenRouterClient
+from roozvan.articles import enrich_items_with_articles
 from roozvan.feeds import collect_news_items
 from roozvan.models import NewsItem, PostDraft, ScoredItem
 from roozvan.scoring import rank_scored_items, score_news_items
@@ -24,6 +25,8 @@ class PipelineConfig:
     selection_limit: int = 5
     minimum_score: float = 12
     include_maybe: bool = True
+    fetch_articles: bool = True
+    article_max_chars: int = 6000
 
 
 @dataclass
@@ -80,6 +83,20 @@ class EditorialScoringStage:
             client,
             max_tokens=config.max_tokens,
             workers=config.workers,
+        )
+        return result
+
+
+class ArticleExtractionStage:
+    name = "article_extraction"
+
+    def run(self, result: PipelineResult, config: PipelineConfig) -> PipelineResult:
+        if not config.fetch_articles:
+            return result
+        result.items = enrich_items_with_articles(
+            result.items,
+            timeout=config.timeout,
+            max_chars=config.article_max_chars,
         )
         return result
 
@@ -148,6 +165,7 @@ def build_default_pipeline() -> Pipeline:
     return Pipeline(
         [
             RecentNewsExtractionStage(),
+            ArticleExtractionStage(),
             EditorialScoringStage(),
             RankingStage(),
             DeduplicationStage(),
