@@ -14,10 +14,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run RoozVan sources -> select pipeline.")
     parser.add_argument("--sources", default="sources.txt", help="File containing RSS/Atom URLs or paths, one per line.")
     parser.add_argument("--prompt", default="scoring_prompt.md", help="Editorial scoring prompt file.")
+    parser.add_argument(
+        "--format-instruction",
+        default="format_selection_instruction.md",
+        help="Instagram format selection instruction file.",
+    )
     parser.add_argument("--model", default="openrouter/owl-alpha", help="OpenRouter model name.")
     parser.add_argument("--timeout", type=int, default=60, help="Network and OpenRouter timeout in seconds.")
     parser.add_argument("--max-items", type=int, default=None, help="Optional limit for scoring only the first N RSS items.")
     parser.add_argument("--max-tokens", type=int, default=600, help="Maximum output tokens for each LLM response.")
+    parser.add_argument(
+        "--format-max-tokens",
+        type=int,
+        default=80,
+        help="Maximum output tokens for each format selection LLM response.",
+    )
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel OpenRouter scoring requests.")
     parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
@@ -28,10 +39,12 @@ def main() -> int:
     config = PipelineConfig(
         sources_path=Path(args.sources),
         scoring_prompt_path=Path(args.prompt),
+        format_selection_instruction_path=Path(args.format_instruction),
         model=args.model,
         timeout=args.timeout,
         max_items=args.max_items,
         max_tokens=args.max_tokens,
+        format_selection_max_tokens=args.format_max_tokens,
         workers=args.workers,
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,
@@ -52,7 +65,10 @@ def main() -> int:
     for index, item in enumerate(result.selected_items, start=1):
         evaluation = item.evaluation
         news = item.item
-        print(f"{index}. [{item.overall_score}] {evaluation.get('post_decision')} / {evaluation.get('recommended_format')}")
+        print(
+            f"{index}. [{item.overall_score}] {evaluation.get('post_decision')} / "
+            f"{evaluation.get('recommended_format')} / format_selected={item.format_selected}"
+        )
         print(f"   {news.title}")
         print(f"   {evaluation.get('persian_angle')}")
         print(f"   readable_without_js={news.article_readable_without_js}")

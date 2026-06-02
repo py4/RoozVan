@@ -9,6 +9,7 @@ from typing import Protocol
 from openrouter_client import OpenRouterClient
 from roozvan.articles import enrich_items_with_articles
 from roozvan.feeds import collect_news_items
+from roozvan.format_selection import select_formats_for_scored_items
 from roozvan.models import NewsItem, PostDraft, ScoredItem
 from roozvan.scoring import rank_scored_items, score_news_items
 
@@ -17,10 +18,12 @@ from roozvan.scoring import rank_scored_items, score_news_items
 class PipelineConfig:
     sources_path: Path = Path("sources.txt")
     scoring_prompt_path: Path = Path("scoring_prompt.md")
+    format_selection_instruction_path: Path = Path("format_selection_instruction.md")
     model: str = "openrouter/owl-alpha"
     timeout: int = 60
     max_items: int | None = None
     max_tokens: int = 600
+    format_selection_max_tokens: int = 80
     workers: int = 4
     selection_limit: int = 5
     minimum_score: float = 12
@@ -101,6 +104,22 @@ class ArticleExtractionStage:
         return result
 
 
+class FormatSelectionStage:
+    name = "format_selection"
+
+    def run(self, result: PipelineResult, config: PipelineConfig) -> PipelineResult:
+        instruction = config.format_selection_instruction_path.read_text(encoding="utf-8")
+        client = OpenRouterClient(model=config.model, timeout=config.timeout, app_name="RoozVan")
+        result.selected_items = select_formats_for_scored_items(
+            result.selected_items,
+            instruction,
+            client,
+            max_tokens=config.format_selection_max_tokens,
+            workers=config.workers,
+        )
+        return result
+
+
 class RankingStage:
     name = "rank"
 
@@ -170,6 +189,7 @@ def build_default_pipeline() -> Pipeline:
             DeduplicationStage(),
             SelectionStage(),
             ArticleExtractionStage(),
+            FormatSelectionStage(),
             DraftPlaceholderStage(),
         ]
     )

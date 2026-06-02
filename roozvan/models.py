@@ -55,6 +55,7 @@ class ScoredItem:
     item: NewsItem
     evaluation: dict[str, Any]
     overall_score: float
+    format_selected: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ScoredItem":
@@ -63,6 +64,7 @@ class ScoredItem:
             item=NewsItem.from_dict(data["item"]),
             evaluation=dict(data["evaluation"]),
             overall_score=float(data["overall_score"]),
+            format_selected=optional_text(data.get("format_selected")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -71,6 +73,7 @@ class ScoredItem:
             "item": self.item.to_dict(),
             "evaluation": self.evaluation,
             "overall_score": self.overall_score,
+            "format_selected": self.format_selected,
         }
 
 
