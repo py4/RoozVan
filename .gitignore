@@ -1,0 +1,6 @@
+ENV.yaml
+env.yaml
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
