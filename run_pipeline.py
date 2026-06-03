@@ -79,6 +79,11 @@ def main() -> int:
         default="generated_story_images",
         help="Directory where generated story images will be saved.",
     )
+    parser.add_argument(
+        "--dump-dir",
+        default=None,
+        help="Optional directory for full pipeline debug dumps.",
+    )
     parser.add_argument("--json", action="store_true", help="Print selected candidates as JSON.")
     args = parser.parse_args()
 
@@ -107,6 +112,8 @@ def main() -> int:
     started_at = time.perf_counter()
     result = build_default_pipeline().run(config)
     total_elapsed = time.perf_counter() - started_at
+    if args.dump_dir:
+        write_debug_dump(Path(args.dump_dir), result, config, total_elapsed)
 
     if args.json:
         print(json.dumps(result.selected_as_dicts(), ensure_ascii=False, indent=2))
@@ -134,6 +141,56 @@ def main() -> int:
         print()
     print_timing_summary(result.stage_timings, total_elapsed)
     return 0
+
+
+def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elapsed: float) -> None:
+    dump_dir.mkdir(parents=True, exist_ok=True)
+    write_json(dump_dir / "extracted.json", [item.to_dict() for item in result.items])
+    write_json(dump_dir / "scored.json", [item.to_dict() for item in result.scored_items])
+    write_json(dump_dir / "ranked.json", [item.to_dict() for item in result.ranked_items])
+    write_json(dump_dir / "deduped.json", [item.to_dict() for item in result.deduped_items])
+    write_json(dump_dir / "selected.json", [item.to_dict() for item in result.selected_items])
+    write_json(dump_dir / "post_drafts.json", [draft.to_dict() for draft in result.post_drafts])
+    write_json(
+        dump_dir / "timing.json",
+        {
+            "stages": [
+                {"name": stage_name, "seconds": round(elapsed, 3)}
+                for stage_name, elapsed in result.stage_timings
+            ],
+            "total_seconds": round(total_elapsed, 3),
+        },
+    )
+    write_json(
+        dump_dir / "config.json",
+        {
+            "sources_path": str(config.sources_path),
+            "scoring_prompt_path": str(config.scoring_prompt_path),
+            "format_selection_instruction_path": str(config.format_selection_instruction_path),
+            "story_image_prompt_path": str(config.story_image_prompt_path),
+            "model": config.model,
+            "story_image_model": config.story_image_model,
+            "gemini_story_image_model": config.gemini_story_image_model,
+            "story_image_provider": config.story_image_provider,
+            "timeout": config.timeout,
+            "story_image_timeout": config.story_image_timeout,
+            "max_items": config.max_items,
+            "max_tokens": config.max_tokens,
+            "format_selection_max_tokens": config.format_selection_max_tokens,
+            "story_image_max_tokens": config.story_image_max_tokens,
+            "workers": config.workers,
+            "selection_limit": config.selection_limit,
+            "minimum_score": config.minimum_score,
+            "include_maybe": config.include_maybe,
+            "generate_story_images": config.generate_story_images,
+            "story_image_output_dir": str(config.story_image_output_dir),
+        },
+    )
+    print(f"Debug dump written to {dump_dir}", file=sys.stderr)
+
+
+def write_json(path: Path, data) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def print_timing_summary(stage_timings: list[tuple[str, float]], total_elapsed: float, *, file=sys.stdout) -> None:
