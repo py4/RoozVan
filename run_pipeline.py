@@ -45,6 +45,12 @@ def main() -> int:
         default=80,
         help="Maximum output tokens for each format selection LLM response.",
     )
+    parser.add_argument(
+        "--story-image-max-tokens",
+        type=int,
+        default=12000,
+        help="Maximum output tokens for each story image generation response.",
+    )
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel OpenRouter scoring requests.")
     parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
@@ -74,6 +80,7 @@ def main() -> int:
         max_items=args.max_items,
         max_tokens=args.max_tokens,
         format_selection_max_tokens=args.format_max_tokens,
+        story_image_max_tokens=args.story_image_max_tokens,
         workers=args.workers,
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,

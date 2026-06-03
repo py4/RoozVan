@@ -39,6 +39,7 @@ def generate_story_images_for_scored_items(
     *,
     output_dir: Path,
     model: str = DEFAULT_STORY_IMAGE_MODEL,
+    max_tokens: int | None = 12000,
     workers: int = 4,
 ) -> list[ScoredItem]:
     """Generate story images in parallel and return items with story_image_path set."""
@@ -52,6 +53,7 @@ def generate_story_images_for_scored_items(
             client,
             output_dir=output_dir,
             model=model,
+            max_tokens=max_tokens,
         )
         item = replace(scored_item.item, story_image_path=str(path))
         return index, replace(scored_item, item=item)
@@ -93,6 +95,7 @@ def generate_story_image(
     *,
     output_dir: Path,
     model: str = DEFAULT_STORY_IMAGE_MODEL,
+    max_tokens: int | None = 12000,
 ) -> Path:
     prompt = build_story_image_prompt(prompt_template, scored_item.item)
     body = {
@@ -105,6 +108,8 @@ def generate_story_image(
         },
         "stream": False,
     }
+    if max_tokens is not None:
+        body["max_tokens"] = max_tokens
     response = post_openrouter_image_request(client, body)
     message = response.get("choices", [{}])[0].get("message", {})
     images = message.get("images") or []

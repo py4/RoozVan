@@ -28,6 +28,7 @@ class PipelineConfig:
     max_items: int | None = None
     max_tokens: int = 600
     format_selection_max_tokens: int = 80
+    story_image_max_tokens: int | None = 12000
     workers: int = 4
     selection_limit: int = 5
     minimum_score: float = 12
@@ -144,6 +145,7 @@ class StoryImageGenerationStage:
             client,
             output_dir=config.story_image_output_dir,
             model=config.story_image_model,
+            max_tokens=config.story_image_max_tokens,
             workers=config.workers,
         )
         return result
