@@ -215,7 +215,7 @@ def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[
             "responseModalities": ["IMAGE", "TEXT"],
             "imageConfig": {
                 "aspectRatio": "9:16",
-                "imageSize": "1K",
+                "imageSize": gemini_image_size_for_model(model),
             },
         },
     }
@@ -246,6 +246,14 @@ def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[
     if "error" in parsed:
         raise OpenRouterError(f"Gemini error: {parsed['error']}")
     return parsed
+
+
+def gemini_image_size_for_model(model: str) -> str:
+    """Use 2K where Gemini Pro Image has the same output-token cost as 1K."""
+    normalized = model.removeprefix("models/").lower()
+    if "pro-image" in normalized:
+        return "2K"
+    return "1K"
 
 
 def extract_gemini_inline_image(response: dict[str, Any]) -> tuple[dict[str, str], str | None]:
