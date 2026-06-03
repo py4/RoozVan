@@ -40,8 +40,6 @@ ALLOWED_CATEGORIES = {
     "other",
 }
 
-ALLOWED_FORMATS = {"post", "carousel", "story", "no_post"}
-ALLOWED_DECISIONS = {"post", "maybe", "skip"}
 HIGH_PRIORITY_CATEGORIES = {
     "urgent_alert",
     "immigration",
@@ -262,8 +260,6 @@ def normalize_evaluation(evaluation: dict[str, Any], item: NewsItem | dict[str, 
     normalized["editorial_adjustment"] = adjustment
     normalized["editorial_adjustment_reasons"] = adjustment_reasons
     normalized["overall_score"] = round(normalized["base_score"] + adjustment, 2)
-    normalized["recommended_format"] = infer_recommended_format(normalized)
-    normalized["post_decision"] = infer_post_decision(normalized)
     normalized["selection_gate_passed"] = passes_selection_gate(normalized, item)
     normalized["selection_gate_reasons"] = selection_gate_reasons(normalized, item)
     return normalized
@@ -278,26 +274,6 @@ def infer_risk(score: dict[str, Any]) -> int:
     if score["category"] == "other" and score["actionability"] <= 1:
         risk += 1
     return max(0, min(5, risk))
-
-
-def infer_recommended_format(score: dict[str, Any]) -> str:
-    overall_score = score.get("overall_score", calculate_overall_score(score))
-    if overall_score < 12:
-        return "no_post"
-    if score["urgency"] >= 4 and score["actionability"] >= 4:
-        return "carousel"
-    if score["share_save_potential"] >= 4 and score["actionability"] >= 3:
-        return "post"
-    return "story"
-
-
-def infer_post_decision(score: dict[str, Any]) -> str:
-    overall_score = score.get("overall_score", calculate_overall_score(score))
-    if score.get("recommended_format") == "no_post" or overall_score < 12:
-        return "skip"
-    if overall_score >= 24 and score["risk"] <= 2:
-        return "post"
-    return "maybe"
 
 
 def editorial_adjustment(
@@ -425,8 +401,6 @@ def is_interesting_fyi_story(score: dict[str, Any], item: NewsItem | dict[str, A
 
 
 def passes_selection_gate(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> bool:
-    if score.get("post_decision") == "post":
-        return True
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
         return False
     if is_low_value_sports_signal(item):
@@ -473,8 +447,6 @@ def selection_gate_reasons(score: dict[str, Any], item: NewsItem | dict[str, Any
     ):
         reasons.append("blocked_other_category_low_practical_value")
         return reasons
-    if score.get("post_decision") == "post":
-        reasons.append("strong_post_decision")
     if score["practical_usefulness"] >= 2:
         reasons.append("practical_usefulness_at_least_2")
     if score["actionability"] >= 2:

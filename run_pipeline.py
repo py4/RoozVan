@@ -68,7 +68,6 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel OpenRouter scoring requests.")
     parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
-    parser.add_argument("--post-only", action="store_true", help="Exclude maybe decisions from selected candidates.")
     parser.add_argument(
         "--skip-story-images",
         action="store_true",
@@ -105,7 +104,6 @@ def main() -> int:
         workers=args.workers,
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,
-        include_maybe=not args.post_only,
         generate_story_images=not args.skip_story_images,
         story_image_output_dir=Path(args.story_image_output_dir),
     )
@@ -129,10 +127,7 @@ def main() -> int:
     for index, item in enumerate(result.selected_items, start=1):
         evaluation = item.evaluation
         news = item.item
-        print(
-            f"{index}. [{item.overall_score}] {evaluation.get('post_decision')} / "
-            f"{evaluation.get('recommended_format')} / format_selected={item.format_selected}"
-        )
+        print(f"{index}. [{item.overall_score}] format_selected={item.format_selected}")
         print(f"   {news.title}")
         print(f"   {evaluation.get('persian_angle')}")
         print(f"   readable_without_js={news.article_readable_without_js}")
@@ -181,7 +176,6 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "workers": config.workers,
             "selection_limit": config.selection_limit,
             "minimum_score": config.minimum_score,
-            "include_maybe": config.include_maybe,
             "generate_story_images": config.generate_story_images,
             "story_image_output_dir": str(config.story_image_output_dir),
         },

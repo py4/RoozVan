@@ -9,7 +9,7 @@ from dataclasses import replace
 from typing import Any
 
 from openrouter_client import OpenRouterClient, OpenRouterError
-from roozvan.models import NewsItem, ScoredItem
+from roozvan.models import ScoredItem
 from roozvan.scoring import parse_json_object
 
 
@@ -36,14 +36,39 @@ def format_selection_response_format() -> dict[str, Any]:
     }
 
 
-def build_format_selection_prompt(instruction: str, item: NewsItem) -> str:
+SCORING_CONTEXT_PLACEHOLDER = "{{SCORING_CONTEXT}}"
+
+
+def build_format_selection_prompt(instruction: str, scored_item: ScoredItem) -> str:
+    item = scored_item.item
     candidate = {
         "title": item.title,
         "caption": item.description,
         "article_content": item.article_content,
     }
+    scoring_context = {
+        "overall_score": scored_item.overall_score,
+        "category": scored_item.evaluation.get("category"),
+        "base_score": scored_item.evaluation.get("base_score"),
+        "editorial_adjustment": scored_item.evaluation.get("editorial_adjustment"),
+        "editorial_adjustment_reasons": scored_item.evaluation.get("editorial_adjustment_reasons"),
+        "selection_gate_passed": scored_item.evaluation.get("selection_gate_passed"),
+        "selection_gate_reasons": scored_item.evaluation.get("selection_gate_reasons"),
+        "local_relevance": scored_item.evaluation.get("local_relevance"),
+        "practical_usefulness": scored_item.evaluation.get("practical_usefulness"),
+        "immigrant_relevance": scored_item.evaluation.get("immigrant_relevance"),
+        "urgency": scored_item.evaluation.get("urgency"),
+        "share_save_potential": scored_item.evaluation.get("share_save_potential"),
+        "trustworthiness": scored_item.evaluation.get("trustworthiness"),
+        "actionability": scored_item.evaluation.get("actionability"),
+        "originality": scored_item.evaluation.get("originality"),
+        "reason_en": scored_item.evaluation.get("reason_en"),
+        "persian_angle": scored_item.evaluation.get("persian_angle"),
+    }
+    scoring_context_text = json.dumps(scoring_context, ensure_ascii=False, indent=2)
+    instruction_with_context = instruction.replace(SCORING_CONTEXT_PLACEHOLDER, scoring_context_text)
     return (
-        f"{instruction.strip()}\n\n"
+        f"{instruction_with_context.strip()}\n\n"
         "Classify this candidate:\n"
         f"{json.dumps(candidate, ensure_ascii=False, indent=2)}\n\n"
         "Return only one valid JSON object matching the schema."
@@ -53,12 +78,12 @@ def build_format_selection_prompt(instruction: str, item: NewsItem) -> str:
 def select_format(
     client: OpenRouterClient,
     instruction: str,
-    item: NewsItem,
+    scored_item: ScoredItem,
     *,
     max_tokens: int,
 ) -> str:
     raw_response = client.ask(
-        build_format_selection_prompt(instruction, item),
+        build_format_selection_prompt(instruction, scored_item),
         temperature=0,
         max_tokens=max_tokens,
         extra_body={
@@ -89,7 +114,7 @@ def select_formats_for_scored_items(
     worker_count = max(1, min(workers, len(items)))
 
     def select_indexed_format(index: int, scored_item: ScoredItem) -> tuple[int, ScoredItem]:
-        selected = select_format(client, instruction, scored_item.item, max_tokens=max_tokens)
+        selected = select_format(client, instruction, scored_item, max_tokens=max_tokens)
         return index, replace(scored_item, format_selected=selected)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:

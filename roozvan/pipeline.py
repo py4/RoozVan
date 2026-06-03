@@ -39,7 +39,6 @@ class PipelineConfig:
     workers: int = 4
     selection_limit: int = 5
     minimum_score: float = 12
-    include_maybe: bool = True
     generate_story_images: bool = True
     story_image_output_dir: Path = Path("generated_story_images")
 
@@ -196,12 +195,8 @@ class SelectionStage:
     name = "select"
 
     def run(self, result: PipelineResult, config: PipelineConfig) -> PipelineResult:
-        allowed_decisions = {"post", "maybe"} if config.include_maybe else {"post"}
         selected = []
         for scored_item in result.deduped_items:
-            decision = scored_item.evaluation.get("post_decision")
-            if decision not in allowed_decisions:
-                continue
             if scored_item.overall_score < config.minimum_score:
                 continue
             if not scored_item.evaluation.get("selection_gate_passed", True):

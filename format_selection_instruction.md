@@ -26,6 +26,22 @@ Depth determines format:
 - Medium depth -> `post`
 - High depth -> `carousel_post`
 
+## Scoring Context
+
+Use this scoring context as editorial guidance:
+
+```json
+{{SCORING_CONTEXT}}
+```
+
+The scores come from the first editorial pass. Use them to decide how much publishing weight the item deserves:
+
+- High `actionability`, `practical_usefulness`, and `share_save_potential` usually mean `post` or `carousel_post`.
+- Low `actionability` but strong `local_relevance`, `trustworthiness`, or `selection_gate_reasons` such as `interesting_local_fyi_story` usually means `story`.
+- If the item passed mainly because of `outdoor_lifestyle_or_local_experience_relevance`, prefer `story` unless there are concrete steps, dates, costs, rules, or planning details worth saving.
+- Avoid `carousel_post` unless the article clearly contains multiple practical details and the scoring context shows strong practical usefulness, actionability, or share/save potential.
+- Do not upgrade a quick FYI item to `post` just because the article has enough text.
+
 ## Use `story`
 
 Choose `story` when the content is quick, temporary, conversational, or mainly useful right now.
@@ -100,3 +116,4 @@ Prefer `story` when:
 - the value is mostly immediacy
 - the information will expire soon
 - the topic is light, conversational, or best used for engagement
+- the scoring context shows low actionability but an interesting FYI or lifestyle/local-experience reason
