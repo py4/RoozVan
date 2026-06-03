@@ -59,20 +59,20 @@
   {
     "model": "openai/gpt-5-image-mini",
     "name": "OpenAI: GPT-5 Image Mini",
-    "status": "error",
-    "path": null,
-    "cost": null,
-    "elapsed_seconds": 79.72,
-    "error": "IncompleteRead(2079 bytes read)"
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/openai_gpt_5_image_mini.png",
+    "cost": 0.049428,
+    "elapsed_seconds": 56.58,
+    "retry_attempt": 1
   },
   {
     "model": "openai/gpt-5.4-image-2",
     "name": "OpenAI: GPT-5.4 Image 2",
-    "status": "error",
-    "path": null,
-    "cost": null,
-    "elapsed_seconds": 79.97,
-    "error": "IncompleteRead(2090 bytes read)"
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/openai_gpt_5_4_image_2.png",
+    "cost": 0.145314,
+    "elapsed_seconds": 139.97,
+    "retry_attempt": 1
   },
   {
     "model": "recraft/recraft-v3",
