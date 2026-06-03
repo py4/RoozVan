@@ -15,6 +15,7 @@ class NewsItem:
     image_url: str | None
     article_content: str | None = None
     article_readable_without_js: bool | None = None
+    story_image_path: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "NewsItem":
@@ -26,6 +27,7 @@ class NewsItem:
             image_url=optional_text(data.get("image_url")),
             article_content=optional_text(data.get("article_content")),
             article_readable_without_js=optional_bool(data.get("article_readable_without_js")),
+            story_image_path=optional_text(data.get("story_image_path")),
         )
 
     def to_dict(self) -> dict[str, str | bool | None]:
@@ -37,6 +39,7 @@ class NewsItem:
             "image_url": self.image_url,
             "article_content": self.article_content,
             "article_readable_without_js": self.article_readable_without_js,
+            "story_image_path": self.story_image_path,
         }
 
     def to_scoring_dict(self) -> dict[str, str | None]:

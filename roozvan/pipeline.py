@@ -12,6 +12,7 @@ from roozvan.feeds import collect_news_items
 from roozvan.format_selection import select_formats_for_scored_items
 from roozvan.models import NewsItem, PostDraft, ScoredItem
 from roozvan.scoring import rank_scored_items, score_news_items
+from roozvan.story_images import DEFAULT_STORY_IMAGE_MODEL, generate_story_images_for_scored_items
 
 
 @dataclass(frozen=True)
@@ -19,8 +20,11 @@ class PipelineConfig:
     sources_path: Path = Path("sources.txt")
     scoring_prompt_path: Path = Path("scoring_prompt.md")
     format_selection_instruction_path: Path = Path("format_selection_instruction.md")
+    story_image_prompt_path: Path = Path("prompts/story_image_generation.md")
     model: str = "openrouter/owl-alpha"
+    story_image_model: str = DEFAULT_STORY_IMAGE_MODEL
     timeout: int = 60
+    story_image_timeout: int = 300
     max_items: int | None = None
     max_tokens: int = 600
     format_selection_max_tokens: int = 80
@@ -28,6 +32,8 @@ class PipelineConfig:
     selection_limit: int = 5
     minimum_score: float = 12
     include_maybe: bool = True
+    generate_story_images: bool = True
+    story_image_output_dir: Path = Path("generated_story_images")
 
 
 @dataclass
@@ -120,6 +126,29 @@ class FormatSelectionStage:
         return result
 
 
+class StoryImageGenerationStage:
+    name = "story_image_generation"
+
+    def run(self, result: PipelineResult, config: PipelineConfig) -> PipelineResult:
+        if not config.generate_story_images or not result.selected_items:
+            return result
+        prompt_template = config.story_image_prompt_path.read_text(encoding="utf-8")
+        client = OpenRouterClient(
+            model=config.story_image_model,
+            timeout=config.story_image_timeout,
+            app_name="RoozVan",
+        )
+        result.selected_items = generate_story_images_for_scored_items(
+            result.selected_items,
+            prompt_template,
+            client,
+            output_dir=config.story_image_output_dir,
+            model=config.story_image_model,
+            workers=config.workers,
+        )
+        return result
+
+
 class RankingStage:
     name = "rank"
 
@@ -190,6 +219,7 @@ def build_default_pipeline() -> Pipeline:
             SelectionStage(),
             ArticleExtractionStage(),
             FormatSelectionStage(),
+            StoryImageGenerationStage(),
             DraftPlaceholderStage(),
         ]
     )

@@ -19,8 +19,24 @@ def main() -> int:
         default="format_selection_instruction.md",
         help="Instagram format selection instruction file.",
     )
+    parser.add_argument(
+        "--story-image-prompt",
+        default="prompts/story_image_generation.md",
+        help="Story image generation prompt file.",
+    )
     parser.add_argument("--model", default="openrouter/owl-alpha", help="OpenRouter model name.")
+    parser.add_argument(
+        "--story-image-model",
+        default="google/gemini-3-pro-image-preview",
+        help="OpenRouter image generation model name.",
+    )
     parser.add_argument("--timeout", type=int, default=60, help="Network and OpenRouter timeout in seconds.")
+    parser.add_argument(
+        "--story-image-timeout",
+        type=int,
+        default=300,
+        help="OpenRouter timeout in seconds for story image generation.",
+    )
     parser.add_argument("--max-items", type=int, default=None, help="Optional limit for scoring only the first N RSS items.")
     parser.add_argument("--max-tokens", type=int, default=600, help="Maximum output tokens for each LLM response.")
     parser.add_argument(
@@ -33,6 +49,16 @@ def main() -> int:
     parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
     parser.add_argument("--post-only", action="store_true", help="Exclude maybe decisions from selected candidates.")
+    parser.add_argument(
+        "--skip-story-images",
+        action="store_true",
+        help="Skip story image generation after article ranking and selection.",
+    )
+    parser.add_argument(
+        "--story-image-output-dir",
+        default="generated_story_images",
+        help="Directory where generated story images will be saved.",
+    )
     parser.add_argument("--json", action="store_true", help="Print selected candidates as JSON.")
     args = parser.parse_args()
 
@@ -40,8 +66,11 @@ def main() -> int:
         sources_path=Path(args.sources),
         scoring_prompt_path=Path(args.prompt),
         format_selection_instruction_path=Path(args.format_instruction),
+        story_image_prompt_path=Path(args.story_image_prompt),
         model=args.model,
+        story_image_model=args.story_image_model,
         timeout=args.timeout,
+        story_image_timeout=args.story_image_timeout,
         max_items=args.max_items,
         max_tokens=args.max_tokens,
         format_selection_max_tokens=args.format_max_tokens,
@@ -49,6 +78,8 @@ def main() -> int:
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,
         include_maybe=not args.post_only,
+        generate_story_images=not args.skip_story_images,
+        story_image_output_dir=Path(args.story_image_output_dir),
     )
     result = build_default_pipeline().run(config)
 
@@ -72,6 +103,7 @@ def main() -> int:
         print(f"   {news.title}")
         print(f"   {evaluation.get('persian_angle')}")
         print(f"   readable_without_js={news.article_readable_without_js}")
+        print(f"   story_image_path={news.story_image_path}")
         print(f"   {news.url}")
         print()
     return 0
