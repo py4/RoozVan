@@ -7,7 +7,12 @@ import argparse
 import json
 from pathlib import Path
 
-from roozvan.instagram import publish_image_to_instagram, publish_local_image_to_instagram_with_r2
+from roozvan.instagram import (
+    publish_image_to_instagram,
+    publish_local_image_to_instagram_with_r2,
+    publish_local_story_image_to_instagram_with_r2,
+    publish_story_image_to_instagram,
+)
 
 
 def main() -> int:
@@ -15,9 +20,10 @@ def main() -> int:
     image_group = parser.add_mutually_exclusive_group(required=True)
     image_group.add_argument("--image-url", help="Publicly reachable image URL.")
     image_group.add_argument("--image-path", help="Local image path mapped by INSTAGRAM_PUBLIC_BASE_URL.")
-    caption_group = parser.add_mutually_exclusive_group(required=True)
+    caption_group = parser.add_mutually_exclusive_group()
     caption_group.add_argument("--caption", help="Instagram caption text.")
     caption_group.add_argument("--caption-file", help="Path to a UTF-8 caption text file.")
+    parser.add_argument("--story", action="store_true", help="Publish image as an Instagram Story instead of a feed post.")
     parser.add_argument("--public-base-url", help="Public URL prefix for --image-path.")
     parser.add_argument("--public-base-path", default=".", help="Local base path that maps to --public-base-url.")
     parser.add_argument(
@@ -37,26 +43,45 @@ def main() -> int:
     caption = args.caption
     if args.caption_file:
         caption = Path(args.caption_file).read_text(encoding="utf-8").strip()
+    if not args.story and caption is None:
+        parser.error("feed publishing requires --caption or --caption-file")
 
     if args.upload_r2:
         if not args.image_path:
             parser.error("--upload-r2 requires --image-path")
-        result = publish_local_image_to_instagram_with_r2(
-            image_path=args.image_path,
-            caption=caption or "",
-            object_key=args.r2_key,
-            delete_after_publish=not args.keep_r2_object,
-            timeout=args.timeout,
-        )
+        if args.story:
+            result = publish_local_story_image_to_instagram_with_r2(
+                image_path=args.image_path,
+                object_key=args.r2_key,
+                delete_after_publish=not args.keep_r2_object,
+                timeout=args.timeout,
+            )
+        else:
+            result = publish_local_image_to_instagram_with_r2(
+                image_path=args.image_path,
+                caption=caption or "",
+                object_key=args.r2_key,
+                delete_after_publish=not args.keep_r2_object,
+                timeout=args.timeout,
+            )
     else:
-        result = publish_image_to_instagram(
-            image_url=args.image_url,
-            image_path=args.image_path,
-            caption=caption or "",
-            public_base_url=args.public_base_url,
-            public_base_path=args.public_base_path,
-            timeout=args.timeout,
-        )
+        if args.story:
+            result = publish_story_image_to_instagram(
+                image_url=args.image_url,
+                image_path=args.image_path,
+                public_base_url=args.public_base_url,
+                public_base_path=args.public_base_path,
+                timeout=args.timeout,
+            )
+        else:
+            result = publish_image_to_instagram(
+                image_url=args.image_url,
+                image_path=args.image_path,
+                caption=caption or "",
+                public_base_url=args.public_base_url,
+                public_base_path=args.public_base_path,
+                timeout=args.timeout,
+            )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     return 0
 

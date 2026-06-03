@@ -87,6 +87,18 @@ class InstagramPublisher:
         media_id = self.publish_container(creation_id)
         return InstagramPublishResult(creation_id=creation_id, media_id=media_id, image_url=public_image_url)
 
+    def publish_image_story(
+        self,
+        *,
+        image_url: str | None = None,
+        image_path: str | Path | None = None,
+    ) -> InstagramPublishResult:
+        """Create and publish a single-image Instagram Story."""
+        public_image_url = image_url or self.public_url_for_path(image_path)
+        creation_id = self.create_story_container(public_image_url)
+        media_id = self.publish_container(creation_id)
+        return InstagramPublishResult(creation_id=creation_id, media_id=media_id, image_url=public_image_url)
+
     def publish_local_image_post_with_r2(
         self,
         *,
@@ -111,6 +123,29 @@ class InstagramPublisher:
             if delete_after_publish:
                 storage.delete_object(uploaded.key)
 
+    def publish_local_image_story_with_r2(
+        self,
+        *,
+        image_path: str | Path,
+        object_key: str | None = None,
+        delete_after_publish: bool = True,
+        r2_storage: R2Storage | None = None,
+    ) -> InstagramPublishResult:
+        """Upload a local image to R2 temporarily, publish it as a Story, then optionally delete it."""
+        storage = r2_storage or R2Storage(timeout=self.timeout)
+        uploaded = storage.upload_file(image_path, key=object_key)
+        try:
+            result = self.publish_image_story(image_url=uploaded.public_url)
+            return InstagramPublishResult(
+                creation_id=result.creation_id,
+                media_id=result.media_id,
+                image_url=uploaded.public_url,
+                temporary_object_key=uploaded.key,
+            )
+        finally:
+            if delete_after_publish:
+                storage.delete_object(uploaded.key)
+
     def create_photo_container(self, image_url: str, caption: str) -> str:
         response = self._post(
             f"{self.instagram_user_id}/media",
@@ -123,6 +158,20 @@ class InstagramPublisher:
         creation_id = response.get("id")
         if not isinstance(creation_id, str) or not creation_id:
             raise InstagramPublishError(f"Instagram did not return a creation id: {response}")
+        return creation_id
+
+    def create_story_container(self, image_url: str) -> str:
+        response = self._post(
+            f"{self.instagram_user_id}/media",
+            {
+                "image_url": image_url,
+                "media_type": "STORIES",
+                "access_token": self.access_token,
+            },
+        )
+        creation_id = response.get("id")
+        if not isinstance(creation_id, str) or not creation_id:
+            raise InstagramPublishError(f"Instagram did not return a story creation id: {response}")
         return creation_id
 
     def publish_container(self, creation_id: str) -> str:
@@ -240,6 +289,57 @@ def publish_local_image_to_instagram_with_r2(
     return publisher.publish_local_image_post_with_r2(
         image_path=image_path,
         caption=caption,
+        object_key=object_key,
+        delete_after_publish=delete_after_publish,
+    )
+
+
+def publish_story_image_to_instagram(
+    *,
+    image_url: str | None = None,
+    image_path: str | Path | None = None,
+    access_token: str | None = None,
+    instagram_user_id: str | None = None,
+    public_base_url: str | None = None,
+    public_base_path: str | Path = ".",
+    graph_api_version: str = "v24.0",
+    graph_api_base_url: str = "https://graph.instagram.com",
+    timeout: int = 60,
+) -> InstagramPublishResult:
+    """Publish a single image as an Instagram Story."""
+    publisher = InstagramPublisher(
+        access_token=access_token,
+        instagram_user_id=instagram_user_id,
+        public_base_url=public_base_url,
+        public_base_path=Path(public_base_path),
+        graph_api_version=graph_api_version,
+        graph_api_base_url=graph_api_base_url,
+        timeout=timeout,
+    )
+    return publisher.publish_image_story(image_url=image_url, image_path=image_path)
+
+
+def publish_local_story_image_to_instagram_with_r2(
+    *,
+    image_path: str | Path,
+    object_key: str | None = None,
+    delete_after_publish: bool = True,
+    access_token: str | None = None,
+    instagram_user_id: str | None = None,
+    graph_api_version: str = "v24.0",
+    graph_api_base_url: str = "https://graph.instagram.com",
+    timeout: int = 60,
+) -> InstagramPublishResult:
+    """Temporarily upload a local image to R2, publish it as a Story, and delete the object."""
+    publisher = InstagramPublisher(
+        access_token=access_token,
+        instagram_user_id=instagram_user_id,
+        graph_api_version=graph_api_version,
+        graph_api_base_url=graph_api_base_url,
+        timeout=timeout,
+    )
+    return publisher.publish_local_image_story_with_r2(
+        image_path=image_path,
         object_key=object_key,
         delete_after_publish=delete_after_publish,
     )
