@@ -50,18 +50,8 @@ Return strict JSON only:
   "actionability": 0,
   "originality": 0,
   "category": "",
-  "overall_score": 0,
   "reason_en": "",
   "persian_angle": ""
 }
 
-Overall score formula:
-overall_score =
-1.5 * practical_usefulness +
-1.3 * local_relevance +
-1.2 * immigrant_relevance +
-1.1 * actionability +
-1.0 * urgency +
-1.0 * share_save_potential +
-0.8 * trustworthiness +
-0.5 * originality
+Do not calculate or return an overall score. The application will calculate the final score and apply RoozVan-specific editorial boosts and penalties.

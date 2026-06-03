@@ -204,6 +204,8 @@ class SelectionStage:
                 continue
             if scored_item.overall_score < config.minimum_score:
                 continue
+            if not scored_item.evaluation.get("selection_gate_passed", True):
+                continue
             selected.append(scored_item)
             if len(selected) >= config.selection_limit:
                 break

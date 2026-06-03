@@ -42,6 +42,43 @@ ALLOWED_CATEGORIES = {
 
 ALLOWED_FORMATS = {"post", "carousel", "story", "no_post"}
 ALLOWED_DECISIONS = {"post", "maybe", "skip"}
+HIGH_PRIORITY_CATEGORIES = {
+    "urgent_alert",
+    "immigration",
+    "housing",
+    "transit",
+    "weather",
+    "money_tax",
+    "healthcare",
+}
+OUTSIDE_METRO_KEYWORDS = (
+    "nanaimo",
+    "northern b.c.",
+    "northern bc",
+    "kitimat",
+    "kamloops",
+    "lumby",
+    "victoria",
+    "highway of tears",
+    "west moberly",
+)
+DIRECT_IMPACT_KEYWORDS = (
+    "surcharge",
+    "fee",
+    "fare",
+    "tax",
+    "rent",
+    "rebate",
+    "benefit",
+    "deadline",
+    "increase",
+    "decrease",
+    "ban",
+    "restriction",
+    "closure",
+    "warning",
+    "alert",
+)
 
 
 SCORING_RESPONSE_SCHEMA: dict[str, Any] = {
@@ -56,7 +93,6 @@ SCORING_RESPONSE_SCHEMA: dict[str, Any] = {
         "actionability": {"type": "integer", "minimum": 0, "maximum": 5},
         "originality": {"type": "integer", "minimum": 0, "maximum": 5},
         "category": {"type": "string", "enum": sorted(ALLOWED_CATEGORIES)},
-        "overall_score": {"type": "number"},
         "reason_en": {"type": "string"},
         "persian_angle": {"type": "string"},
     },
@@ -70,7 +106,6 @@ SCORING_RESPONSE_SCHEMA: dict[str, Any] = {
         "actionability",
         "originality",
         "category",
-        "overall_score",
         "reason_en",
         "persian_angle",
     ],
@@ -150,7 +185,7 @@ def clamp_score(value: Any, field_name: str) -> int:
     return max(0, min(5, number))
 
 
-def normalize_evaluation(evaluation: dict[str, Any]) -> dict[str, Any]:
+def normalize_evaluation(evaluation: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> dict[str, Any]:
     normalized = dict(evaluation)
 
     for field in REQUIRED_NUMERIC_FIELDS:
@@ -160,11 +195,17 @@ def normalize_evaluation(evaluation: dict[str, Any]) -> dict[str, Any]:
         normalized["category"] = "other"
 
     normalized["risk"] = infer_risk(normalized)
-    normalized["recommended_format"] = infer_recommended_format(normalized)
     normalized["reason_en"] = str(normalized.get("reason_en") or "")
     normalized["persian_angle"] = str(normalized.get("persian_angle") or "")
-    normalized["overall_score"] = calculate_overall_score(normalized)
+    normalized["base_score"] = calculate_overall_score(normalized)
+    adjustment, adjustment_reasons = editorial_adjustment(normalized, item)
+    normalized["editorial_adjustment"] = adjustment
+    normalized["editorial_adjustment_reasons"] = adjustment_reasons
+    normalized["overall_score"] = round(normalized["base_score"] + adjustment, 2)
+    normalized["recommended_format"] = infer_recommended_format(normalized)
     normalized["post_decision"] = infer_post_decision(normalized)
+    normalized["selection_gate_passed"] = passes_selection_gate(normalized)
+    normalized["selection_gate_reasons"] = selection_gate_reasons(normalized)
     return normalized
 
 
@@ -180,7 +221,8 @@ def infer_risk(score: dict[str, Any]) -> int:
 
 
 def infer_recommended_format(score: dict[str, Any]) -> str:
-    if calculate_overall_score(score) < 12:
+    overall_score = score.get("overall_score", calculate_overall_score(score))
+    if overall_score < 12:
         return "no_post"
     if score["urgency"] >= 4 and score["actionability"] >= 4:
         return "carousel"
@@ -190,12 +232,127 @@ def infer_recommended_format(score: dict[str, Any]) -> str:
 
 
 def infer_post_decision(score: dict[str, Any]) -> str:
-    overall_score = calculate_overall_score(score)
-    if score["recommended_format"] == "no_post" or overall_score < 12:
+    overall_score = score.get("overall_score", calculate_overall_score(score))
+    if score.get("recommended_format") == "no_post" or overall_score < 12:
         return "skip"
     if overall_score >= 24 and score["risk"] <= 2:
         return "post"
     return "maybe"
+
+
+def editorial_adjustment(
+    score: dict[str, Any],
+    item: NewsItem | dict[str, Any] | None = None,
+) -> tuple[float, list[str]]:
+    title = item_title(item).lower()
+    adjustment = 0.0
+    reasons = []
+
+    if has_direct_impact_signal(title) and score["practical_usefulness"] >= 3 and score["actionability"] >= 2:
+        adjustment += 4
+        reasons.append("direct_cost_deadline_or_rule_impact")
+
+    if score["category"] in HIGH_PRIORITY_CATEGORIES and score["practical_usefulness"] >= 2:
+        adjustment += 3
+        reasons.append("high_priority_roozvan_category")
+
+    if (
+        score["category"] == "government_policy"
+        and score["practical_usefulness"] >= 2
+        and score["actionability"] >= 2
+    ):
+        adjustment += 2
+        reasons.append("actionable_government_policy")
+
+    if score["local_relevance"] >= 4 and score["urgency"] >= 3 and score["actionability"] >= 2:
+        adjustment += 2
+        reasons.append("urgent_local_practical_notice")
+
+    if score["category"] == "crime_safety" and score["actionability"] <= 1:
+        adjustment -= 4
+        reasons.append("crime_without_actionable_safety_guidance")
+
+    if score["category"] == "other" and score["practical_usefulness"] <= 1:
+        adjustment -= 3
+        reasons.append("other_category_low_practical_value")
+
+    if score["practical_usefulness"] <= 1 and score["actionability"] <= 1 and score["urgency"] <= 2:
+        adjustment -= 3
+        reasons.append("low_usefulness_actionability_and_urgency")
+
+    if outside_metro_signal(title) and score["practical_usefulness"] < 3:
+        adjustment -= 3
+        reasons.append("outside_metro_without_broad_practical_value")
+
+    return max(-8, min(8, adjustment)), reasons
+
+
+def item_title(item: NewsItem | dict[str, Any] | None) -> str:
+    if item is None:
+        return ""
+    if isinstance(item, NewsItem):
+        return item.title or ""
+    return str(item.get("title") or "")
+
+
+def has_direct_impact_signal(title: str) -> bool:
+    return any(keyword in title for keyword in DIRECT_IMPACT_KEYWORDS)
+
+
+def outside_metro_signal(title: str) -> bool:
+    return any(keyword in title for keyword in OUTSIDE_METRO_KEYWORDS)
+
+
+def passes_selection_gate(score: dict[str, Any]) -> bool:
+    if score.get("post_decision") == "post":
+        return True
+    if score["category"] == "crime_safety" and score["actionability"] <= 1:
+        return False
+    if score["category"] == "other" and score["practical_usefulness"] <= 1:
+        return False
+    return (
+        score["practical_usefulness"] >= 2
+        or score["actionability"] >= 2
+        or score["urgency"] >= 3
+        or score["share_save_potential"] >= 3
+        or score["category"] in HIGH_PRIORITY_CATEGORIES
+        or (
+            score["category"] == "government_policy"
+            and score["practical_usefulness"] >= 2
+            and score["actionability"] >= 2
+        )
+    )
+
+
+def selection_gate_reasons(score: dict[str, Any]) -> list[str]:
+    reasons = []
+    if score["category"] == "crime_safety" and score["actionability"] <= 1:
+        reasons.append("blocked_crime_without_actionable_safety_guidance")
+        return reasons
+    if score["category"] == "other" and score["practical_usefulness"] <= 1:
+        reasons.append("blocked_other_category_low_practical_value")
+        return reasons
+    if score.get("post_decision") == "post":
+        reasons.append("strong_post_decision")
+    if score["practical_usefulness"] >= 2:
+        reasons.append("practical_usefulness_at_least_2")
+    if score["actionability"] >= 2:
+        reasons.append("actionability_at_least_2")
+    if score["urgency"] >= 3:
+        reasons.append("urgency_at_least_3")
+    if score["share_save_potential"] >= 3:
+        reasons.append("share_save_potential_at_least_3")
+    if score["category"] in HIGH_PRIORITY_CATEGORIES:
+        reasons.append("high_priority_category")
+    if (
+        score["category"] == "government_policy"
+        and score["practical_usefulness"] >= 2
+        and score["actionability"] >= 2
+    ):
+        reasons.append("actionable_government_policy")
+    if not reasons:
+        reasons.append("blocked_by_low_practical_value_gate")
+    return reasons
 
 
 def score_item(
@@ -216,7 +373,7 @@ def score_item(
             },
         },
     )
-    return normalize_evaluation(parse_json_object(raw_response))
+    return normalize_evaluation(parse_json_object(raw_response), item)
 
 
 def score_news_items(
