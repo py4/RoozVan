@@ -15,7 +15,9 @@ Rules:
 - Do not repeat the exact same headline/subline that should appear in the image.
 - If the item is mostly FYI, make that clear and keep the tone light.
 - If the item is practical, include dates, costs, locations, rules, or what this means for the audience.
-- Include 5-8 relevant hashtags.
+- Include 5-8 relevant hashtags at the end of `caption_fa`.
+- Hashtags should mix English and Persian when useful, for example #Vancouver, #ونکوور, #BC, #بریتش_کلمبیا, and topic-specific tags such as #حمل_ونقل, #فری, #جام_جهانی, #کمپینگ, #مهاجرت, #مسکن, #آب_وهوا.
+- Use only relevant hashtags. Do not stuff generic tags.
 
 Return JSON only:
 
