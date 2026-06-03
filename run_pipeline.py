@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -26,6 +28,16 @@ def main() -> int:
         "--story-image-prompt",
         default="prompts/story_image_generation.md",
         help="Story image generation prompt file.",
+    )
+    parser.add_argument(
+        "--post-image-prompt",
+        default="prompts/post_image_generation.md",
+        help="Post image generation prompt file.",
+    )
+    parser.add_argument(
+        "--post-caption-prompt",
+        default="prompts/post_caption_generation.md",
+        help="Post caption generation prompt file.",
     )
     parser.add_argument("--model", default="openrouter/owl-alpha", help="OpenRouter model name.")
     parser.add_argument(
@@ -65,6 +77,18 @@ def main() -> int:
         default=12000,
         help="Maximum output tokens for each story image generation response.",
     )
+    parser.add_argument(
+        "--post-caption-max-tokens",
+        type=int,
+        default=900,
+        help="Maximum output tokens for each post caption generation response.",
+    )
+    parser.add_argument(
+        "--post-image-max-tokens",
+        type=int,
+        default=12000,
+        help="Maximum output tokens for each post image generation response.",
+    )
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel OpenRouter scoring requests.")
     parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
@@ -74,9 +98,19 @@ def main() -> int:
         help="Skip story image generation after article ranking and selection.",
     )
     parser.add_argument(
+        "--skip-post-content",
+        action="store_true",
+        help="Skip post image and caption generation after format selection.",
+    )
+    parser.add_argument(
         "--story-image-output-dir",
         default="generated_story_images",
         help="Directory where generated story images will be saved.",
+    )
+    parser.add_argument(
+        "--post-image-output-dir",
+        default="generated_post_images",
+        help="Directory where generated post images will be saved.",
     )
     parser.add_argument(
         "--dump-dir",
@@ -91,6 +125,8 @@ def main() -> int:
         scoring_prompt_path=Path(args.prompt),
         format_selection_instruction_path=Path(args.format_instruction),
         story_image_prompt_path=Path(args.story_image_prompt),
+        post_image_prompt_path=Path(args.post_image_prompt),
+        post_caption_prompt_path=Path(args.post_caption_prompt),
         model=args.model,
         story_image_model=args.story_image_model,
         gemini_story_image_model=args.gemini_story_image_model,
@@ -101,11 +137,15 @@ def main() -> int:
         max_tokens=args.max_tokens,
         format_selection_max_tokens=args.format_max_tokens,
         story_image_max_tokens=args.story_image_max_tokens,
+        post_caption_max_tokens=args.post_caption_max_tokens,
+        post_image_max_tokens=args.post_image_max_tokens,
         workers=args.workers,
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,
         generate_story_images=not args.skip_story_images,
+        generate_post_content=not args.skip_post_content,
         story_image_output_dir=Path(args.story_image_output_dir),
+        post_image_output_dir=Path(args.post_image_output_dir),
     )
     started_at = time.perf_counter()
     result = build_default_pipeline().run(config)
@@ -132,6 +172,8 @@ def main() -> int:
         print(f"   {evaluation.get('persian_angle')}")
         print(f"   readable_without_js={news.article_readable_without_js}")
         print(f"   story_image_path={news.story_image_path}")
+        print(f"   post_image_path={news.post_image_path}")
+        print(f"   post_caption_fa={news.post_caption_fa}")
         print(f"   {news.url}")
         print()
     print_timing_summary(result.stage_timings, total_elapsed)
@@ -163,6 +205,8 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "scoring_prompt_path": str(config.scoring_prompt_path),
             "format_selection_instruction_path": str(config.format_selection_instruction_path),
             "story_image_prompt_path": str(config.story_image_prompt_path),
+            "post_image_prompt_path": str(config.post_image_prompt_path),
+            "post_caption_prompt_path": str(config.post_caption_prompt_path),
             "model": config.model,
             "story_image_model": config.story_image_model,
             "gemini_story_image_model": config.gemini_story_image_model,
@@ -173,18 +217,247 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "max_tokens": config.max_tokens,
             "format_selection_max_tokens": config.format_selection_max_tokens,
             "story_image_max_tokens": config.story_image_max_tokens,
+            "post_caption_max_tokens": config.post_caption_max_tokens,
+            "post_image_max_tokens": config.post_image_max_tokens,
             "workers": config.workers,
             "selection_limit": config.selection_limit,
             "minimum_score": config.minimum_score,
             "generate_story_images": config.generate_story_images,
+            "generate_post_content": config.generate_post_content,
             "story_image_output_dir": str(config.story_image_output_dir),
+            "post_image_output_dir": str(config.post_image_output_dir),
         },
     )
+    write_html_report(dump_dir / "index.html", result.selected_items)
     print(f"Debug dump written to {dump_dir}", file=sys.stderr)
 
 
 def write_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def write_html_report(path: Path, selected_items) -> None:
+    rows = "\n".join(render_instagram_row(path.parent, item) for item in selected_items)
+    if not rows:
+        rows = '<div class="empty">No selected items.</div>'
+    path.write_text(
+        f"""<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RoozVan Pipeline Preview</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --text: #151515;
+      --muted: #777;
+      --line: #dedede;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Arial, sans-serif;
+    }}
+    .page {{
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }}
+    h1 {{
+      margin: 0 0 20px;
+      font-size: 22px;
+      font-weight: 750;
+      direction: ltr;
+      text-align: left;
+    }}
+    .row {{
+      display: grid;
+      grid-template-columns: minmax(280px, 420px) 1fr;
+      gap: 24px;
+      align-items: start;
+      padding: 22px 0;
+      border-top: 1px solid var(--line);
+    }}
+    .row:first-of-type {{ border-top: 0; }}
+    .phone {{
+      width: min(100%, 420px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      direction: ltr;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }}
+    .ig-header {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+      font-weight: 700;
+    }}
+    .avatar {{
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0e7490, #111827);
+    }}
+    .media {{
+      display: block;
+      width: 100%;
+      background: #111;
+      object-fit: cover;
+    }}
+    .post .media {{ aspect-ratio: 4 / 5; }}
+    .story {{
+      max-width: 340px;
+      border-radius: 22px;
+      background: #111;
+      padding: 10px;
+    }}
+    .story .media {{
+      aspect-ratio: 9 / 16;
+      border-radius: 16px;
+    }}
+    .ig-actions {{
+      padding: 10px 12px 0;
+      font-size: 22px;
+      letter-spacing: 4px;
+    }}
+    .caption {{
+      padding: 8px 12px 14px;
+      direction: rtl;
+      text-align: right;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }}
+    .meta {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      direction: rtl;
+      text-align: right;
+    }}
+    .badge {{
+      display: inline-block;
+      direction: ltr;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 9px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      background: #fafafa;
+    }}
+    .title {{
+      margin: 0 0 8px;
+      font-size: 17px;
+      line-height: 1.55;
+      font-weight: 750;
+    }}
+    .angle {{
+      margin: 0;
+      color: #333;
+      line-height: 1.8;
+      font-size: 14px;
+    }}
+    .path {{
+      margin-top: 12px;
+      direction: ltr;
+      text-align: left;
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }}
+    .missing {{
+      aspect-ratio: 4 / 5;
+      display: grid;
+      place-items: center;
+      background: #111;
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+    }}
+    .empty {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      direction: ltr;
+    }}
+    @media (max-width: 760px) {{
+      .page {{ padding: 14px; }}
+      .row {{ grid-template-columns: 1fr; }}
+      .story {{ max-width: 100%; }}
+    }}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>RoozVan Pipeline Preview</h1>
+    {rows}
+  </main>
+</body>
+</html>
+""",
+        encoding="utf-8",
+    )
+
+
+def render_instagram_row(dump_dir: Path, item) -> str:
+    news = item.item
+    selected_format = item.format_selected or "unknown"
+    is_story = selected_format == "story"
+    image_path = news.story_image_path if is_story else news.post_image_path
+    media = render_media(dump_dir, image_path, is_story=is_story)
+    caption = html.escape(news.post_caption_fa or "")
+    title = html.escape(news.title or "")
+    angle = html.escape(str(item.evaluation.get("persian_angle") or ""))
+    score = html.escape(str(item.overall_score))
+    image_path_text = html.escape(image_path or "")
+
+    if is_story:
+        preview = f'<div class="phone story">{media}</div>'
+    else:
+        preview = f"""
+        <div class="phone post">
+          <div class="ig-header"><div class="avatar"></div><div>roozvan.ca</div></div>
+          {media}
+          <div class="ig-actions">♡ ◌ ↗</div>
+          <div class="caption"><strong>roozvan.ca</strong> {caption}</div>
+        </div>
+        """
+
+    return f"""
+    <section class="row">
+      {preview}
+      <aside class="meta">
+        <div class="badge">{html.escape(selected_format)} · score {score}</div>
+        <h2 class="title">{title}</h2>
+        <p class="angle">{angle}</p>
+        <div class="path">{image_path_text}</div>
+      </aside>
+    </section>
+    """
+
+
+def render_media(dump_dir: Path, image_path: str | None, *, is_story: bool) -> str:
+    if not image_path:
+        return '<div class="missing">No image generated</div>'
+    relative_path = html.escape(relative_asset_path(dump_dir, Path(image_path)))
+    return f'<img class="media" src="{relative_path}" alt="">'
+
+
+def relative_asset_path(from_dir: Path, asset_path: Path) -> str:
+    return os.path.relpath(asset_path, from_dir).replace(os.sep, "/")
 
 
 def print_timing_summary(stage_timings: list[tuple[str, float]], total_elapsed: float, *, file=sys.stdout) -> None:

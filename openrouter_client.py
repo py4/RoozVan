@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -50,6 +51,7 @@ class OpenRouterClient:
     timeout: int = 60
     site_url: str | None = None
     app_name: str | None = None
+    max_retries: int = 3
 
     def __post_init__(self) -> None:
         load_default_env_files()
@@ -110,14 +112,7 @@ class OpenRouterClient:
             method="POST",
         )
 
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                raw_response = response.read().decode("utf-8")
-        except urllib.error.HTTPError as exc:
-            error_body = exc.read().decode("utf-8", errors="replace")
-            raise OpenRouterError(f"OpenRouter HTTP {exc.code}: {error_body}") from exc
-        except urllib.error.URLError as exc:
-            raise OpenRouterError(f"Failed to call OpenRouter: {exc}") from exc
+        raw_response = self._post_with_retries(request)
 
         try:
             parsed = json.loads(raw_response)
@@ -129,6 +124,21 @@ class OpenRouterClient:
         if "error" in parsed:
             raise OpenRouterError(f"OpenRouter error: {parsed['error']}")
         return parsed
+
+    def _post_with_retries(self, request: urllib.request.Request) -> str:
+        for attempt in range(self.max_retries + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    return response.read().decode("utf-8")
+            except urllib.error.HTTPError as exc:
+                error_body = exc.read().decode("utf-8", errors="replace")
+                if exc.code == 429 and attempt < self.max_retries:
+                    time.sleep(2 ** attempt * 5)
+                    continue
+                raise OpenRouterError(f"OpenRouter HTTP {exc.code}: {error_body}") from exc
+            except urllib.error.URLError as exc:
+                raise OpenRouterError(f"Failed to call OpenRouter: {exc}") from exc
+        raise OpenRouterError("OpenRouter retry loop ended unexpectedly.")
 
 
 if __name__ == "__main__":

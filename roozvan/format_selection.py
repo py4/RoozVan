@@ -10,7 +10,7 @@ from typing import Any
 
 from openrouter_client import OpenRouterClient, OpenRouterError
 from roozvan.models import ScoredItem
-from roozvan.scoring import parse_json_object
+from roozvan.scoring import is_unsupported_structured_output_error, parse_json_object
 
 
 ALLOWED_SELECTED_FORMATS = {"post", "story", "carousel_post"}
@@ -82,17 +82,23 @@ def select_format(
     *,
     max_tokens: int,
 ) -> str:
-    raw_response = client.ask(
-        build_format_selection_prompt(instruction, scored_item),
-        temperature=0,
-        max_tokens=max_tokens,
-        extra_body={
-            "response_format": format_selection_response_format(),
-            "provider": {
-                "require_parameters": True,
+    prompt = build_format_selection_prompt(instruction, scored_item)
+    try:
+        raw_response = client.ask(
+            prompt,
+            temperature=0,
+            max_tokens=max_tokens,
+            extra_body={
+                "response_format": format_selection_response_format(),
+                "provider": {
+                    "require_parameters": True,
+                },
             },
-        },
-    )
+        )
+    except OpenRouterError as exc:
+        if not is_unsupported_structured_output_error(exc):
+            raise
+        raw_response = client.ask(prompt, temperature=0, max_tokens=max_tokens)
     selected = parse_json_object(raw_response).get("format")
     if selected not in ALLOWED_SELECTED_FORMATS:
         raise ValueError(f"Invalid selected format: {selected!r}")

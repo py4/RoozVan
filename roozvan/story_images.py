@@ -50,6 +50,8 @@ def generate_story_images_for_scored_items(
     results: list[ScoredItem | None] = [None] * len(items)
 
     def generate_indexed_image(index: int, scored_item: ScoredItem) -> tuple[int, ScoredItem]:
+        if scored_item.format_selected != "story":
+            return index, scored_item
         path = generate_story_image(
             scored_item,
             prompt_template,
@@ -198,6 +200,17 @@ def generate_story_image_with_gemini(
 
 
 def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[str, Any]:
+    return post_gemini_image_request_with_config(prompt, model=model, timeout=timeout, aspect_ratio="9:16")
+
+
+def post_gemini_image_request_with_config(
+    prompt: str,
+    *,
+    model: str,
+    timeout: int,
+    aspect_ratio: str,
+    image_size: str = "1K",
+) -> dict[str, Any]:
     load_default_env_files()
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -214,8 +227,8 @@ def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[
         "generationConfig": {
             "responseModalities": ["IMAGE", "TEXT"],
             "imageConfig": {
-                "aspectRatio": "9:16",
-                "imageSize": "1K",
+                "aspectRatio": aspect_ratio,
+                "imageSize": image_size,
             },
         },
     }
@@ -246,6 +259,7 @@ def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[
     if "error" in parsed:
         raise OpenRouterError(f"Gemini error: {parsed['error']}")
     return parsed
+
 
 def extract_gemini_inline_image(response: dict[str, Any]) -> tuple[dict[str, str], str | None]:
     assistant_text = None

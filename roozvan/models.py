@@ -16,6 +16,8 @@ class NewsItem:
     article_content: str | None = None
     article_readable_without_js: bool | None = None
     story_image_path: str | None = None
+    post_image_path: str | None = None
+    post_caption_fa: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "NewsItem":
@@ -28,6 +30,8 @@ class NewsItem:
             article_content=optional_text(data.get("article_content")),
             article_readable_without_js=optional_bool(data.get("article_readable_without_js")),
             story_image_path=optional_text(data.get("story_image_path")),
+            post_image_path=optional_text(data.get("post_image_path")),
+            post_caption_fa=optional_text(data.get("post_caption_fa")),
         )
 
     def to_dict(self) -> dict[str, str | bool | None]:
@@ -40,6 +44,8 @@ class NewsItem:
             "article_content": self.article_content,
             "article_readable_without_js": self.article_readable_without_js,
             "story_image_path": self.story_image_path,
+            "post_image_path": self.post_image_path,
+            "post_caption_fa": self.post_caption_fa,
         }
 
     def to_scoring_dict(self) -> dict[str, str | None]:
@@ -90,7 +96,7 @@ class PostDraft:
         return {
             "scored_item": self.scored_item.to_dict(),
             "image_prompt_fa": self.image_prompt_fa,
-            "caption_fa": self.caption_fa,
+            "caption_fa": self.caption_fa or self.scored_item.item.post_caption_fa,
         }
 
 

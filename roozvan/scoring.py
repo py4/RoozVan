@@ -475,18 +475,28 @@ def score_item(
     *,
     max_tokens: int,
 ) -> dict[str, Any]:
-    raw_response = client.ask(
-        build_prompt(prompt_template, item),
-        temperature=0,
-        max_tokens=max_tokens,
-        extra_body={
-            "response_format": scoring_response_format(),
-            "provider": {
-                "require_parameters": True,
+    prompt = build_prompt(prompt_template, item)
+    try:
+        raw_response = client.ask(
+            prompt,
+            temperature=0,
+            max_tokens=max_tokens,
+            extra_body={
+                "response_format": scoring_response_format(),
+                "provider": {
+                    "require_parameters": True,
+                },
             },
-        },
-    )
+        )
+    except OpenRouterError as exc:
+        if not is_unsupported_structured_output_error(exc):
+            raise
+        raw_response = client.ask(prompt, temperature=0, max_tokens=max_tokens)
     return normalize_evaluation(parse_json_object(raw_response), item)
+
+
+def is_unsupported_structured_output_error(exc: OpenRouterError) -> bool:
+    return "No endpoints found that can handle the requested parameters" in str(exc)
 
 
 def score_news_items(

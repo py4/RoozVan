@@ -5,3 +5,4 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 runs/
+generated_post_images/

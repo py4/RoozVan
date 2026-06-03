@@ -12,6 +12,7 @@ from roozvan.articles import enrich_items_with_articles
 from roozvan.feeds import collect_news_items
 from roozvan.format_selection import select_formats_for_scored_items
 from roozvan.models import NewsItem, PostDraft, ScoredItem
+from roozvan.post_content import generate_post_content_for_scored_items
 from roozvan.scoring import rank_scored_items, score_news_items
 from roozvan.story_images import (
     DEFAULT_GEMINI_STORY_IMAGE_MODEL,
@@ -26,6 +27,8 @@ class PipelineConfig:
     scoring_prompt_path: Path = Path("scoring_prompt.md")
     format_selection_instruction_path: Path = Path("format_selection_instruction.md")
     story_image_prompt_path: Path = Path("prompts/story_image_generation.md")
+    post_image_prompt_path: Path = Path("prompts/post_image_generation.md")
+    post_caption_prompt_path: Path = Path("prompts/post_caption_generation.md")
     model: str = "openrouter/owl-alpha"
     story_image_model: str = DEFAULT_STORY_IMAGE_MODEL
     gemini_story_image_model: str = DEFAULT_GEMINI_STORY_IMAGE_MODEL
@@ -36,11 +39,15 @@ class PipelineConfig:
     max_tokens: int = 600
     format_selection_max_tokens: int = 80
     story_image_max_tokens: int | None = 12000
+    post_caption_max_tokens: int = 900
+    post_image_max_tokens: int | None = 12000
     workers: int = 4
     selection_limit: int = 5
     minimum_score: float = 12
     generate_story_images: bool = True
+    generate_post_content: bool = True
     story_image_output_dir: Path = Path("generated_story_images")
+    post_image_output_dir: Path = Path("generated_post_images")
 
 
 @dataclass
@@ -166,6 +173,41 @@ class StoryImageGenerationStage:
         return result
 
 
+class PostContentGenerationStage:
+    name = "post_content_generation"
+
+    def run(self, result: PipelineResult, config: PipelineConfig) -> PipelineResult:
+        if not config.generate_post_content or not result.selected_items:
+            return result
+        image_prompt_template = config.post_image_prompt_path.read_text(encoding="utf-8")
+        caption_prompt_template = config.post_caption_prompt_path.read_text(encoding="utf-8")
+        image_model = (
+            config.gemini_story_image_model
+            if config.story_image_provider == "gemini"
+            else config.story_image_model
+        )
+        image_client = OpenRouterClient(
+            model=image_model,
+            timeout=config.story_image_timeout,
+            app_name="RoozVan",
+        )
+        caption_client = OpenRouterClient(model=config.model, timeout=config.timeout, app_name="RoozVan")
+        result.selected_items = generate_post_content_for_scored_items(
+            result.selected_items,
+            image_prompt_template=image_prompt_template,
+            caption_prompt_template=caption_prompt_template,
+            caption_client=caption_client,
+            image_client=image_client,
+            output_dir=config.post_image_output_dir,
+            image_model=image_model,
+            image_provider=config.story_image_provider,
+            caption_max_tokens=config.post_caption_max_tokens,
+            image_max_tokens=config.post_image_max_tokens,
+            workers=config.workers,
+        )
+        return result
+
+
 class RankingStage:
     name = "rank"
 
@@ -234,6 +276,7 @@ def build_default_pipeline() -> Pipeline:
             SelectionStage(),
             ArticleExtractionStage(),
             FormatSelectionStage(),
+            PostContentGenerationStage(),
             StoryImageGenerationStage(),
             DraftPlaceholderStage(),
         ]
