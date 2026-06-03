@@ -29,7 +29,7 @@ class PipelineConfig:
     model: str = "openrouter/owl-alpha"
     story_image_model: str = DEFAULT_STORY_IMAGE_MODEL
     gemini_story_image_model: str = DEFAULT_GEMINI_STORY_IMAGE_MODEL
-    story_image_provider: str = "openrouter"
+    story_image_provider: str = "gemini"
     timeout: int = 60
     story_image_timeout: int = 300
     max_items: int | None = None

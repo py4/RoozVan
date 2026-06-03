@@ -36,7 +36,7 @@ def main() -> int:
     parser.add_argument(
         "--story-image-provider",
         choices=("openrouter", "gemini"),
-        default="openrouter",
+        default="gemini",
         help="Provider for story image generation.",
     )
     parser.add_argument(

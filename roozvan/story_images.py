@@ -19,7 +19,7 @@ from roozvan.models import NewsItem, ScoredItem
 
 
 DEFAULT_STORY_IMAGE_MODEL = "openai/gpt-5.4-image-2"
-DEFAULT_GEMINI_STORY_IMAGE_MODEL = "gemini-3.1-flash-image"
+DEFAULT_GEMINI_STORY_IMAGE_MODEL = "gemini-3-pro-image-preview"
 
 
 def build_story_image_prompt(prompt_template: str, item: NewsItem) -> str:
