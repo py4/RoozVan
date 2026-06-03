@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from roozvan.pipeline import PipelineConfig, build_default_pipeline
+from roozvan.story_images import DEFAULT_GEMINI_STORY_IMAGE_MODEL, DEFAULT_STORY_IMAGE_MODEL
 
 
 def main() -> int:
@@ -27,8 +28,19 @@ def main() -> int:
     parser.add_argument("--model", default="openrouter/owl-alpha", help="OpenRouter model name.")
     parser.add_argument(
         "--story-image-model",
-        default="openai/gpt-5.4-image-2",
+        default=DEFAULT_STORY_IMAGE_MODEL,
         help="OpenRouter image generation model name.",
+    )
+    parser.add_argument(
+        "--story-image-provider",
+        choices=("openrouter", "gemini"),
+        default="openrouter",
+        help="Provider for story image generation.",
+    )
+    parser.add_argument(
+        "--gemini-story-image-model",
+        default=DEFAULT_GEMINI_STORY_IMAGE_MODEL,
+        help="Direct Gemini API image generation model name.",
     )
     parser.add_argument("--timeout", type=int, default=60, help="Network and OpenRouter timeout in seconds.")
     parser.add_argument(
@@ -75,6 +87,8 @@ def main() -> int:
         story_image_prompt_path=Path(args.story_image_prompt),
         model=args.model,
         story_image_model=args.story_image_model,
+        gemini_story_image_model=args.gemini_story_image_model,
+        story_image_provider=args.story_image_provider,
         timeout=args.timeout,
         story_image_timeout=args.story_image_timeout,
         max_items=args.max_items,
