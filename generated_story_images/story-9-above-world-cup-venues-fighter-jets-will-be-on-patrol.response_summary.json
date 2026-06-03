@@ -1,0 +1,27 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3-pro-image",
+  "source_index": 9,
+  "title": "Above World Cup venues, fighter jets will be on patrol",
+  "story_image_path": "generated_story_images/story-9-above-world-cup-venues-fighter-jets-will-be-on-patrol.jpg",
+  "usage": {
+    "promptTokenCount": 1780,
+    "candidatesTokenCount": 1408,
+    "totalTokenCount": 3982,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1780
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 1120
+      }
+    ],
+    "thoughtsTokenCount": 794,
+    "serviceTier": "standard"
+  },
+  "assistant_content": null
+}
