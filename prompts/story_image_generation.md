@@ -1,118 +1,128 @@
-You are generating a complete Persian-language Instagram Story image for a trusted Vancouver-focused media page for Iranian immigrants and Persian speakers living in Metro Vancouver.
+You are generating one Persian-language Instagram Story image for RoozVan / روز وَن, a Farsi-first Vancouver local-news page for Iranian diaspora and Persian-speaking immigrants in Metro Vancouver, BC.
 
-The image generation model itself MUST generate the Persian text natively inside the image.
+This prompt is ONLY for the image generation model. Do not choose a format. Do not write a caption. Do not make a post or carousel. Generate one complete 9:16 Instagram Story image.
 
-Your goal is NOT to summarize the full article.
+The image generation model itself MUST render the Persian text natively inside the image.
 
-Your goal is to create an Instagram Story that quickly communicates:
+CORE EDITORIAL FEEL:
+The Story should feel like a smart Persian friend in Vancouver quickly explaining what actually matters.
 
-1. what happened
-2. why it matters
-3. whether any action is needed
+Do not translate the English article word-for-word.
+Understand the article, simplify it, localize it for Persian speakers in Vancouver, and turn it into a quick useful Story.
 
-The audience is scrolling quickly on mobile.
+STORY PURPOSE:
+The Story should answer, at a glance:
 
-The story should feel:
+1. What happened?
+2. Why does it matter to Iranians / Persian speakers in Vancouver or BC?
+3. Who is affected?
+4. What should people do next, if anything?
+5. When and where does this apply?
+6. What is the trusted source/date?
 
-* useful
-* modern
-* trustworthy
-* calm
-* visually clean
-* easy to understand within 2–3 seconds
+Use Story style only: urgent, temporary, simple, useful in the moment.
 
-DESIGN STYLE:
+VISIBLE TEXT STRUCTURE:
+The image should contain these parts, in Persian/Farsi, right-to-left:
 
-* modern editorial infographic
-* premium minimalist local-media aesthetic
-* clean Persian typography
-* highly readable on mobile
-* subtle cinematic realism OR clean infographic illustration
-* uncluttered composition
-* one dominant visual idea
-* soft professional color palette
-* trustworthy and informative rather than sensational
+1. Category label
+   Examples: هشدار محلی، خبر مهم، یادآوری، سلامت، حمل‌ونقل، قوانین شهری، آب‌وهوا
 
-IMPORTANT:
-The generated image MUST include native Persian text rendered directly into the image.
+2. One main takeaway
+   A short, clear sentence that says the most important thing.
 
-The Persian text should:
+3. Why it matters
+   One short line explaining practical relevance for local Persian-speaking residents.
 
-* be short
-* highly readable
-* visually clean
-* use modern Persian editorial typography
-* avoid dense paragraphs
-* avoid excessive wording
-* feel natural and human-written
+4. Action / date / location
+   One short line telling people what to check, avoid, do, or remember.
 
-TEXT RULES:
-The image should contain:
+5. Source/date
+   A small but readable line such as:
+   منبع: CBC — ۱ ژوئن ۲۰۲۶
 
-* one short Persian headline
-* one short explanatory sentence
-* optionally one short actionable line or CTA
+TEXT LIMIT:
+Ideal visible Persian text: 25-45 words.
+Maximum visible Persian text: 60 words.
 
-The text should answer:
+Keep every line short. Avoid dense paragraphs.
 
-* What happened?
-* Why should I care?
-* What should I do? (optional)
+PERSIAN WRITING RULES:
+Use natural, simple, human Farsi.
+Use clear Persian typography.
+Render text right-to-left correctly.
+Use Persian numerals when possible.
+Use common Vancouver diaspora wording when helpful.
+Do not use awkward literal translation.
+Do not invent facts.
 
-Maximum total visible Persian text:
-approximately 20–50 words.
+English text should be avoided unless it is a necessary proper noun, acronym, source name, or place name, such as:
+CBC, B.C., Sea-to-Sky, Metro Vancouver, SkyTrain
 
-DO NOT:
+DESIGN RULES:
+Create a 9:16 Instagram Story.
+Use high contrast.
+Use large readable Farsi text.
+Use one dominant visual idea.
+Use a clean modern editorial infographic style.
+Make it readable within 2-3 seconds on a phone.
+Use enough spacing around text.
+Use no tiny footnotes.
+Use no screenshot of the English article.
+Use no fake logos, fake watermarks, or fake UI.
+Use no clickbait or dramatic TV-breaking-news style.
 
-* summarize the entire article
-* overload with details
-* include long paragraphs
-* create clickbait
-* create dramatic “breaking news” TV aesthetics
-* generate meme content
-* include fake logos/watermarks
-* include excessive small details
-* create visually noisy layouts
-* generate distorted Persian typography
-
-VISUAL COMPOSITION:
-
-* Instagram Story vertical 9:16
-* strong visual hierarchy
-* large readable Persian text
-* enough spacing around text
-* clear focal subject
-* visually understandable at a glance
-* balanced image/text composition
-
-When relevant, subtly include Vancouver/BC visual context such as:
+VISUAL DIRECTION:
+Use local Vancouver/BC context when relevant:
 
 * Vancouver skyline
-* SkyTrain
-* mountains
-* forests
+* mountains / North Shore
+* forests / Sea-to-Sky
 * rainy streets
-* downtown Vancouver
-* Canadian public infrastructure
-* realistic local atmosphere
+* SkyTrain
+* public infrastructure
+* realistic Metro Vancouver atmosphere
 
-EDITORIAL RULES:
+If the story is about health, safety, weather, utilities, transit, local rules, deadlines, or public services, use simple visual symbols that make the action clear.
+
+EDITORIAL PRIORITY:
 Focus on:
 
 * practical usefulness
 * urgency
 * actionability
-* clarity
 * local relevance
+* clarity for immigrants/newcomers
+* trusted source/date
 
 Ignore:
 
 * filler journalism
-* quotes
-* political framing
+* long quotes
+* political framing unless it is the core news
 * secondary details
-* repetitive context
+* repeated background
 * unnecessary statistics
+
+RECOMMENDED STORY TEMPLATE:
+
+[Category]
+خبر مهم برای ونکوور
+
+[Main takeaway]
+یک جمله کوتاه درباره اتفاق اصلی.
+
+[Why it matters]
+یک خط درباره اثر آن برای ساکنان محلی.
+
+[Action]
+یک اقدام، تاریخ، محل، یا چیزی که باید چک شود.
+
+[Source]
+منبع: نام منبع — تاریخ
+
+The final image should feel like:
+"یک دوست آگاه فارسی‌زبان در ونکوور، خبر مهم را ساده و قابل‌استفاده توضیح داده است."
 
 NEWS INPUT:
 
@@ -126,8 +136,4 @@ Full Article:
 {{ARTICLE}}
 
 OUTPUT:
-Generate a single polished Instagram Story image with embedded Persian text and an appropriate editorial visual style.
-
-The final result should feel like:
-“A smart Persian Vancouver page clearly and calmly informing the community.”
-
+Generate a single polished 9:16 Persian Instagram Story image with embedded native Persian text and an appropriate local editorial visual style.
