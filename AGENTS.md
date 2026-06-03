@@ -6,3 +6,4 @@ sources -> recent news extraction -> score -> rank -> dedup -> select -> generat
 
 # Version Control
 Always break big changes into smaller readable commits and make sure your changes are commited and push to git
+Do not commit generated live artifacts such as ranked_live.json or generated image outputs. These files can be regenerated and should stay out of commits unless explicitly requested.
