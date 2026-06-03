@@ -1,0 +1,31 @@
+{
+  "model": "google/gemini-3.1-flash-image-preview",
+  "display_name": "Google: Gemini 3.1 Flash Image Preview",
+  "prompt": "Create a vertical Instagram infographic/story image, 9:16 aspect ratio, for RoozVan, a Persian/Farsi news page for Iranian diaspora living in Vancouver, BC.\n\nAudience:\nIranian diaspora in Metro Vancouver and B.C. The tone should be calm, practical, local, and Instagram-friendly. Avoid panic or sensationalism.\n\nTopic:\nResearchers detected California serogroup virus in invasive mosquitoes found in B.C.'s Sea-to-Sky region.\n\nSource facts to communicate in Farsi:\n- در منطقه Sea-to-Sky بریتیش کلمبیا، دو گونه پشه مهاجم پیدا شده‌اند که تست آن‌ها برای ویروس‌های گروه California serogroup مثبت بوده است.\n- این گروه از ویروس‌ها توسط پشه منتقل می‌شود.\n- در موارد نادر، این ویروس‌ها می‌توانند باعث التهاب مغز یا مننژیت در انسان شوند.\n- خبر مربوط به ۱ ژوئن ۲۰۲۶ است.\n- پیام اصلی برای جامعه: آگاهی، پیشگیری از نیش پشه، و دنبال کردن توصیه‌های بهداشت عمومی.\n\nPlease generate the infographic fully in Persian/Farsi, right-to-left.\n\nSuggested Farsi headline:\nویروس در پشه‌های مهاجم B.C. شناسایی شد\n\nSuggested subheadline:\nمنطقه Sea-to-Sky؛ آنچه ساکنان باید بدانند\n\nSuggested infographic bullets:\n۲ گونه پشه مهاجم شناسایی شد\nتست ویروس California serogroup مثبت بود\nانتقال از راه نیش پشه است\nموارد شدید نادر است اما می‌تواند جدی باشد\nبرای پیشگیری: آب راکد را حذف کنید\nدر فضای باز از پوشش مناسب و دافع پشه استفاده کنید\n\nVisual direction:\nModern Vancouver/B.C. editorial health infographic. Use a clean Instagram news style with subtle Sea-to-Sky / mountain / forest visual context, mosquito iconography, medical/public-health accents, and clear warning/info design. Use calm colors, strong contrast, and readable layout.\n\nTypography:\nUse large, readable Persian typography. Keep text short and legible. Do not use English text except unavoidable place/scientific names: B.C., Sea-to-Sky, California serogroup. Do not add fake logos, watermarks, random extra words, or unreadable decorative text.\n\nLayout:\nTop: strong Farsi headline.\nMiddle: 4 to 6 clear icon rows or cards.\nBottom: short reminder:\nآگاهی و پیشگیری، بهترین راه محافظت است\n\nImportant:\nAll visible text should be Persian/Farsi except B.C., Sea-to-Sky, and California serogroup. The text must be readable and correctly written right-to-left. Avoid hallucinated medical claims not listed above.",
+  "assistant_content": null,
+  "image_count": 1,
+  "usage": {
+    "prompt_tokens": 596,
+    "completion_tokens": 1516,
+    "total_tokens": 2112,
+    "cost": 0.068686,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.068686,
+      "upstream_inference_prompt_cost": 0.000298,
+      "upstream_inference_completions_cost": 0.068388
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 1120,
+      "audio_tokens": 0
+    }
+  },
+  "id": "gen-1780448493-mmvHJ2vMHyCvEUzp5u4t"
+}
