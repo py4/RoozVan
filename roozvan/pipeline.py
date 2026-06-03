@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -208,6 +209,95 @@ class PostContentGenerationStage:
         return result
 
 
+class VisualContentGenerationStage:
+    name = "visual_content_generation"
+
+    def run(self, result: PipelineResult, config: PipelineConfig) -> PipelineResult:
+        if not result.selected_items:
+            return result
+
+        post_indexed_items = [
+            (index, item)
+            for index, item in enumerate(result.selected_items)
+            if item.format_selected == "post"
+        ]
+        story_indexed_items = [
+            (index, item)
+            for index, item in enumerate(result.selected_items)
+            if item.format_selected == "story"
+        ]
+        updated_items: list[ScoredItem] = list(result.selected_items)
+
+        def generate_post_items() -> list[tuple[int, ScoredItem]]:
+            if not config.generate_post_content or not post_indexed_items:
+                return []
+            image_prompt_template = config.post_image_prompt_path.read_text(encoding="utf-8")
+            caption_prompt_template = config.post_caption_prompt_path.read_text(encoding="utf-8")
+            image_model = (
+                config.gemini_story_image_model
+                if config.story_image_provider == "gemini"
+                else config.story_image_model
+            )
+            image_client = OpenRouterClient(
+                model=image_model,
+                timeout=config.story_image_timeout,
+                app_name="RoozVan",
+            )
+            caption_client = OpenRouterClient(model=config.model, timeout=config.timeout, app_name="RoozVan")
+            generated = generate_post_content_for_scored_items(
+                [item for _, item in post_indexed_items],
+                image_prompt_template=image_prompt_template,
+                caption_prompt_template=caption_prompt_template,
+                caption_client=caption_client,
+                image_client=image_client,
+                output_dir=config.post_image_output_dir,
+                image_model=image_model,
+                image_provider=config.story_image_provider,
+                caption_max_tokens=config.post_caption_max_tokens,
+                image_max_tokens=config.post_image_max_tokens,
+                workers=config.workers,
+            )
+            return [(index, item) for (index, _), item in zip(post_indexed_items, generated)]
+
+        def generate_story_items() -> list[tuple[int, ScoredItem]]:
+            if not config.generate_story_images or not story_indexed_items:
+                return []
+            prompt_template = config.story_image_prompt_path.read_text(encoding="utf-8")
+            story_image_model = (
+                config.gemini_story_image_model
+                if config.story_image_provider == "gemini"
+                else config.story_image_model
+            )
+            client = OpenRouterClient(
+                model=story_image_model,
+                timeout=config.story_image_timeout,
+                app_name="RoozVan",
+            )
+            generated = generate_story_images_for_scored_items(
+                [item for _, item in story_indexed_items],
+                prompt_template,
+                client,
+                output_dir=config.story_image_output_dir,
+                model=story_image_model,
+                provider=config.story_image_provider,
+                max_tokens=config.story_image_max_tokens,
+                workers=config.workers,
+            )
+            return [(index, item) for (index, _), item in zip(story_indexed_items, generated)]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(generate_post_items),
+                executor.submit(generate_story_items),
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                for index, item in future.result():
+                    updated_items[index] = item
+
+        result.selected_items = updated_items
+        return result
+
+
 class RankingStage:
     name = "rank"
 
@@ -276,8 +366,7 @@ def build_default_pipeline() -> Pipeline:
             SelectionStage(),
             ArticleExtractionStage(),
             FormatSelectionStage(),
-            PostContentGenerationStage(),
-            StoryImageGenerationStage(),
+            VisualContentGenerationStage(),
             DraftPlaceholderStage(),
         ]
     )
