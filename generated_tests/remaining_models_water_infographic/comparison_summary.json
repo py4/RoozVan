@@ -1,0 +1,191 @@
+[
+  {
+    "model": "black-forest-labs/flux.2-flex",
+    "name": "Black Forest Labs: FLUX.2 Flex",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/black_forest_labs_flux_2_flex.png",
+    "cost": 0.1,
+    "elapsed_seconds": 29.06
+  },
+  {
+    "model": "black-forest-labs/flux.2-max",
+    "name": "Black Forest Labs: FLUX.2 Max",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/black_forest_labs_flux_2_max.png",
+    "cost": 0.13,
+    "elapsed_seconds": 48.1
+  },
+  {
+    "model": "black-forest-labs/flux.2-pro",
+    "name": "Black Forest Labs: FLUX.2 Pro",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/black_forest_labs_flux_2_pro.png",
+    "cost": 0.045,
+    "elapsed_seconds": 24.53
+  },
+  {
+    "model": "google/gemini-3-pro-image-preview",
+    "name": "Google: Nano Banana Pro (Gemini 3 Pro Image Preview)",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/google_gemini_3_pro_image_preview.jpg",
+    "cost": 0.141718,
+    "elapsed_seconds": 25.54
+  },
+  {
+    "model": "google/gemini-3.1-flash-image-preview",
+    "name": "Google: Nano Banana 2 (Gemini 3.1 Flash Image Preview)",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/google_gemini_3_1_flash_image_preview.jpg",
+    "cost": 0.0693055,
+    "elapsed_seconds": 12.26
+  },
+  {
+    "model": "microsoft/mai-image-2.5",
+    "name": "Microsoft: MAI-Image-2.5",
+    "status": "http_400",
+    "path": null,
+    "cost": null,
+    "elapsed_seconds": 7.2,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":400,\"metadata\":{\"raw\":\"{\\\"error\\\":{\\\"code\\\":\\\"content_safety_violation\\\",\\\"message\\\":\\\"ResponsibleAI result indicated block action.\\\",\\\"details\\\":\\\"ResponsibleAI result indicated block action.\\\"}}\",\"provider_name\":\"Azure\",\"is_byok\":false}},\"user_id\":\"user_30AxxykCDjDsqGDjEL7gJ04PNbR\"}"
+  },
+  {
+    "model": "openai/gpt-5-image",
+    "name": "OpenAI: GPT-5 Image",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/openai_gpt_5_image.png",
+    "cost": 0.25804,
+    "elapsed_seconds": 101.0
+  },
+  {
+    "model": "openai/gpt-5-image-mini",
+    "name": "OpenAI: GPT-5 Image Mini",
+    "status": "error",
+    "path": null,
+    "cost": null,
+    "elapsed_seconds": 79.72,
+    "error": "IncompleteRead(2079 bytes read)"
+  },
+  {
+    "model": "openai/gpt-5.4-image-2",
+    "name": "OpenAI: GPT-5.4 Image 2",
+    "status": "error",
+    "path": null,
+    "cost": null,
+    "elapsed_seconds": 79.97,
+    "error": "IncompleteRead(2090 bytes read)"
+  },
+  {
+    "model": "recraft/recraft-v3",
+    "name": "Recraft: Recraft V3",
+    "status": "http_400",
+    "path": null,
+    "cost": null,
+    "elapsed_seconds": 0.5,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":400,\"metadata\":{\"raw\":\"{\\\"code\\\":\\\"invalid_request_parameter\\\",\\\"message\\\":\\\"prompt length should be in [1, 1000]\\\"}\",\"provider_name\":\"Recraft\",\"is_byok\":false}},\"user_id\":\"user_30AxxykCDjDsqGDjEL7gJ04PNbR\"}"
+  },
+  {
+    "model": "recraft/recraft-v4",
+    "name": "Recraft: Recraft V4",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4.webp",
+    "cost": 0.04,
+    "elapsed_seconds": 21.68
+  },
+  {
+    "model": "recraft/recraft-v4-pro",
+    "name": "Recraft: Recraft V4 Pro",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4_pro.webp",
+    "cost": 0.25,
+    "elapsed_seconds": 31.45
+  },
+  {
+    "model": "recraft/recraft-v4-pro-vector",
+    "name": "Recraft: Recraft V4 Pro Vector",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4_pro_vector.svg",
+    "cost": 0.3,
+    "elapsed_seconds": 30.21
+  },
+  {
+    "model": "recraft/recraft-v4-vector",
+    "name": "Recraft: Recraft V4 Vector",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4_vector.svg",
+    "cost": 0.08,
+    "elapsed_seconds": 22.95
+  },
+  {
+    "model": "recraft/recraft-v4.1-pro",
+    "name": "Recraft: Recraft V4.1 Pro",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4_1_pro.webp",
+    "cost": 0.25,
+    "elapsed_seconds": 25.67
+  },
+  {
+    "model": "recraft/recraft-v4.1-pro-vector",
+    "name": "Recraft: Recraft V4.1 Pro Vector",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4_1_pro_vector.svg",
+    "cost": 0.3,
+    "elapsed_seconds": 27.71
+  },
+  {
+    "model": "recraft/recraft-v4.1-utility",
+    "name": "Recraft: Recraft V4.1 Utility",
+    "status": "error",
+    "path": null,
+    "cost": null,
+    "elapsed_seconds": 10.08,
+    "error": "IncompleteRead(253 bytes read)"
+  },
+  {
+    "model": "recraft/recraft-v4.1-utility-pro",
+    "name": "Recraft: Recraft V4.1 Utility Pro",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4_1_utility_pro.webp",
+    "cost": 0.25,
+    "elapsed_seconds": 26.21
+  },
+  {
+    "model": "recraft/recraft-v4.1-vector",
+    "name": "Recraft: Recraft V4.1 Vector",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/recraft_recraft_v4_1_vector.svg",
+    "cost": 0.08,
+    "elapsed_seconds": 20.41
+  },
+  {
+    "model": "sourceful/riverflow-v2-fast-preview",
+    "name": "Sourceful: Riverflow V2 Fast Preview",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/sourceful_riverflow_v2_fast_preview.png",
+    "cost": 0.03,
+    "elapsed_seconds": 23.72
+  },
+  {
+    "model": "sourceful/riverflow-v2-max-preview",
+    "name": "Sourceful: Riverflow V2 Max Preview",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/sourceful_riverflow_v2_max_preview.png",
+    "cost": 0.075,
+    "elapsed_seconds": 154.15
+  },
+  {
+    "model": "sourceful/riverflow-v2-pro",
+    "name": "Sourceful: Riverflow V2 Pro",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/sourceful_riverflow_v2_pro.png",
+    "cost": 0.15,
+    "elapsed_seconds": 109.48
+  },
+  {
+    "model": "sourceful/riverflow-v2-standard-preview",
+    "name": "Sourceful: Riverflow V2 Standard Preview",
+    "status": "ok",
+    "path": "generated_tests/remaining_models_water_infographic/sourceful_riverflow_v2_standard_preview.png",
+    "cost": 0.035,
+    "elapsed_seconds": 107.6
+  }
+]

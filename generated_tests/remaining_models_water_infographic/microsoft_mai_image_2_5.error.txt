@@ -1,0 +1,1 @@
+{"error":{"message":"Provider returned error","code":400,"metadata":{"raw":"{\"error\":{\"code\":\"content_safety_violation\",\"message\":\"ResponsibleAI result indicated block action.\",\"details\":\"ResponsibleAI result indicated block action.\"}}","provider_name":"Azure","is_byok":false}},"user_id":"user_30AxxykCDjDsqGDjEL7gJ04PNbR"}

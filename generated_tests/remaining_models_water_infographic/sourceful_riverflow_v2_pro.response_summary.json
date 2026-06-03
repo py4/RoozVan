@@ -1,0 +1,31 @@
+{
+  "model": "sourceful/riverflow-v2-pro",
+  "display_name": "Sourceful: Riverflow V2 Pro",
+  "prompt": "Create a vertical Instagram infographic/story image, 9:16 aspect ratio, for RoozVan, a Persian/Farsi news page for Iranian diaspora living in Vancouver, BC.\n\nAudience:\nIranian diaspora in Metro Vancouver. The tone should be clear, practical, local, and Instagram-friendly.\n\nTopic:\nMetro Vancouver Stage 3 water restrictions starting June 8, 2026.\n\nSource facts to communicate in Farsi:\n- محدودیت‌های مرحله ۳ آب در مترو ونکوور از ۸ ژوئن ۲۰۲۶ اجرا می‌شود.\n- دلیل‌ها: هوای گرم و خشک، مصرف بالای آب، برف‌انباشت بسیار کم، و تعمیر یک لوله اصلی تأمین آب.\n- برف‌انباشت منطقه کمتر از ۱۵٪ میانگین تاریخی است.\n- هدف مترو ونکوور این است که مصرف روزانه آب زیر ۱.۴ میلیارد لیتر بماند.\n- آبیاری چمن ممنوع است.\n- پر کردن یا اضافه کردن آب استخر، جکوزی و فواره ممنوع است.\n- شستن ماشین ممنوع است، به‌جز تمیز کردن بخش‌های ضروری مثل آینه، شیشه و چراغ‌ها برای ایمنی.\n- درختان، بوته‌ها و گل‌ها فقط با آبیاری دستی یا قطره‌ای مجاز هستند؛ آب‌پاش و شلنگ تراوا ممنوع است.\n- شستن driveway و sidewalk عمدتاً ممنوع است.\n- رعایت این محدودیت‌ها برای حفظ فشار آب و کمک به خدمات اضطراری مهم است.\n\nPlease generate the infographic fully in Persian/Farsi, right-to-left.\n\nSuggested Farsi headline:\nمحدودیت مرحله ۳ آب در مترو ونکوور\n\nSuggested subheadline:\nاز ۸ ژوئن؛ قوانین مهم برای ساکنان ونکوور\n\nSuggested infographic bullets:\n۸ ژوئن شروع محدودیت‌ها\nچمن: آبیاری ممنوع\nماشین: شست‌وشو ممنوع\nاستخر و جکوزی: پر کردن ممنوع\nگل و درخت: فقط دستی یا قطره‌ای\nهدف: حفظ فشار آب و کاهش مصرف\n\nVisual direction:\nModern Vancouver editorial infographic. Use a clean Instagram news style with a Vancouver summer/water theme: seawall, mountains, dry sunny weather, water droplet icons, restricted hose/car/lawn icons. Make the design polished, readable, high contrast, and suitable for Instagram Stories.\n\nTypography:\nUse large, readable Persian typography. Keep text short and legible. Do not use English text. Do not add fake logos, watermarks, random extra words, or unreadable decorative text.\n\nLayout:\nTop: strong Farsi headline.\nMiddle: 4 to 6 clear rule cards or icon rows.\nBottom: short reminder:\nمصرف کمتر آب یعنی فشار پایدارتر برای همه\n\nImportant:\nAll visible text must be Persian/Farsi only. The text must be readable and correctly written right-to-left. Avoid hallucinated rules not listed above.",
+  "assistant_content": null,
+  "image_count": 1,
+  "usage": {
+    "prompt_tokens": 1134,
+    "completion_tokens": 4175,
+    "total_tokens": 5309,
+    "cost": 0.15,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.15,
+      "upstream_inference_prompt_cost": 0,
+      "upstream_inference_completions_cost": 0.15
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 4175,
+      "audio_tokens": 0
+    }
+  },
+  "id": "gen-1780446627-MbMf5mzKB9QBC7Luxyy0"
+}
