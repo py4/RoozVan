@@ -51,8 +51,14 @@ HIGH_PRIORITY_CATEGORIES = {
     "money_tax",
     "healthcare",
 }
+FYI_STORY_CATEGORIES = {
+    "community_event",
+    "lifestyle",
+    "local_business",
+    "transit",
+    "weather",
+}
 OUTSIDE_METRO_KEYWORDS = (
-    "nanaimo",
     "northern b.c.",
     "northern bc",
     "kitimat",
@@ -61,6 +67,60 @@ OUTSIDE_METRO_KEYWORDS = (
     "victoria",
     "highway of tears",
     "west moberly",
+)
+LIFESTYLE_FYI_KEYWORDS = (
+    "camp",
+    "camping",
+    "hike",
+    "hiking",
+    "trail",
+    "park",
+    "parks",
+    "beach",
+    "cycling",
+    "bike",
+    "biking",
+    "paddleboard",
+    "paddleboarding",
+    "lake",
+    "ferry",
+    "ferries",
+    "nanaimo",
+    "squamish",
+    "whistler",
+    "vancouver island",
+    "brewery",
+    "breweries",
+    "restaurant",
+    "restaurants",
+    "cafe",
+    "coffee",
+    "food",
+    "market",
+    "festival",
+    "weekend",
+)
+SPORTS_LOW_VALUE_KEYWORDS = (
+    "hockey",
+    "pwhl",
+    "stanley cup",
+    "player",
+    "star",
+    "re-sign",
+    "contract",
+    "roster",
+    "protect",
+    "athlete",
+    "hammer thrower",
+    "goal",
+)
+SPORTS_USEFUL_KEYWORDS = (
+    "tickets",
+    "transit",
+    "road closure",
+    "watch party",
+    "community event",
+    "festival",
 )
 DIRECT_IMPACT_KEYWORDS = (
     "surcharge",
@@ -204,8 +264,8 @@ def normalize_evaluation(evaluation: dict[str, Any], item: NewsItem | dict[str, 
     normalized["overall_score"] = round(normalized["base_score"] + adjustment, 2)
     normalized["recommended_format"] = infer_recommended_format(normalized)
     normalized["post_decision"] = infer_post_decision(normalized)
-    normalized["selection_gate_passed"] = passes_selection_gate(normalized)
-    normalized["selection_gate_reasons"] = selection_gate_reasons(normalized)
+    normalized["selection_gate_passed"] = passes_selection_gate(normalized, item)
+    normalized["selection_gate_reasons"] = selection_gate_reasons(normalized, item)
     return normalized
 
 
@@ -244,11 +304,11 @@ def editorial_adjustment(
     score: dict[str, Any],
     item: NewsItem | dict[str, Any] | None = None,
 ) -> tuple[float, list[str]]:
-    title = item_title(item).lower()
+    text = item_text(item).lower()
     adjustment = 0.0
     reasons = []
 
-    if has_direct_impact_signal(title) and score["practical_usefulness"] >= 3 and score["actionability"] >= 2:
+    if has_direct_impact_signal(text) and score["practical_usefulness"] >= 3 and score["actionability"] >= 2:
         adjustment += 4
         reasons.append("direct_cost_deadline_or_rule_impact")
 
@@ -268,19 +328,42 @@ def editorial_adjustment(
         adjustment += 2
         reasons.append("urgent_local_practical_notice")
 
+    if is_interesting_fyi_story(score, item):
+        adjustment += 2
+        reasons.append("interesting_local_fyi_story")
+
+    if is_lifestyle_or_outdoor_signal(item) and score["local_relevance"] >= 2:
+        adjustment += 2
+        reasons.append("outdoor_lifestyle_or_local_experience_relevance")
+
+    if is_low_value_sports_signal(item):
+        adjustment -= 6
+        reasons.append("sports_result_or_roster_without_community_use")
+
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
         adjustment -= 4
         reasons.append("crime_without_actionable_safety_guidance")
 
-    if score["category"] == "other" and score["practical_usefulness"] <= 1:
+    if (
+        score["category"] == "other"
+        and score["practical_usefulness"] <= 1
+        and not is_interesting_fyi_story(score, item)
+        and not is_lifestyle_or_outdoor_signal(item)
+    ):
         adjustment -= 3
         reasons.append("other_category_low_practical_value")
 
-    if score["practical_usefulness"] <= 1 and score["actionability"] <= 1 and score["urgency"] <= 2:
+    if (
+        score["practical_usefulness"] <= 1
+        and score["actionability"] <= 1
+        and score["urgency"] <= 2
+        and not is_interesting_fyi_story(score, item)
+        and not is_lifestyle_or_outdoor_signal(item)
+    ):
         adjustment -= 3
         reasons.append("low_usefulness_actionability_and_urgency")
 
-    if outside_metro_signal(title) and score["practical_usefulness"] < 3:
+    if outside_metro_signal(text) and score["practical_usefulness"] < 3:
         adjustment -= 3
         reasons.append("outside_metro_without_broad_practical_value")
 
@@ -295,20 +378,66 @@ def item_title(item: NewsItem | dict[str, Any] | None) -> str:
     return str(item.get("title") or "")
 
 
+def item_text(item: NewsItem | dict[str, Any] | None) -> str:
+    if item is None:
+        return ""
+    if isinstance(item, NewsItem):
+        values = (item.title, item.description)
+    else:
+        values = (item.get("title"), item.get("description"))
+    return " ".join(str(value or "") for value in values)
+
+
 def has_direct_impact_signal(title: str) -> bool:
-    return any(keyword in title for keyword in DIRECT_IMPACT_KEYWORDS)
+    return contains_keyword(title, DIRECT_IMPACT_KEYWORDS)
 
 
 def outside_metro_signal(title: str) -> bool:
-    return any(keyword in title for keyword in OUTSIDE_METRO_KEYWORDS)
+    return contains_keyword(title, OUTSIDE_METRO_KEYWORDS)
 
 
-def passes_selection_gate(score: dict[str, Any]) -> bool:
+def is_lifestyle_or_outdoor_signal(item: NewsItem | dict[str, Any] | None) -> bool:
+    text = item_text(item).lower()
+    return contains_keyword(text, LIFESTYLE_FYI_KEYWORDS)
+
+
+def is_low_value_sports_signal(item: NewsItem | dict[str, Any] | None) -> bool:
+    text = item_text(item).lower()
+    return contains_keyword(text, SPORTS_LOW_VALUE_KEYWORDS) and not contains_keyword(text, SPORTS_USEFUL_KEYWORDS)
+
+
+def contains_keyword(text: str, keywords: tuple[str, ...]) -> bool:
+    return any(re.search(rf"\b{re.escape(keyword)}\b", text) for keyword in keywords)
+
+
+def is_interesting_fyi_story(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> bool:
+    if score["category"] == "crime_safety" and score["actionability"] <= 1:
+        return False
+    if score["local_relevance"] < 3 or score["trustworthiness"] < 4:
+        return False
+    if score["share_save_potential"] < 2 and score["originality"] < 3:
+        return False
+    return (
+        score["category"] in FYI_STORY_CATEGORIES
+        or score["practical_usefulness"] >= 2
+        or is_lifestyle_or_outdoor_signal(item)
+    )
+
+
+def passes_selection_gate(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> bool:
     if score.get("post_decision") == "post":
         return True
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
         return False
-    if score["category"] == "other" and score["practical_usefulness"] <= 1:
+    if is_low_value_sports_signal(item):
+        return False
+    if is_interesting_fyi_story(score, item):
+        return True
+    if (
+        score["category"] == "other"
+        and score["practical_usefulness"] <= 1
+        and not is_lifestyle_or_outdoor_signal(item)
+    ):
         return False
     return (
         score["practical_usefulness"] >= 2
@@ -324,12 +453,24 @@ def passes_selection_gate(score: dict[str, Any]) -> bool:
     )
 
 
-def selection_gate_reasons(score: dict[str, Any]) -> list[str]:
+def selection_gate_reasons(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> list[str]:
     reasons = []
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
         reasons.append("blocked_crime_without_actionable_safety_guidance")
         return reasons
-    if score["category"] == "other" and score["practical_usefulness"] <= 1:
+    if is_low_value_sports_signal(item):
+        reasons.append("blocked_sports_result_or_roster_without_community_use")
+        return reasons
+    if is_interesting_fyi_story(score, item):
+        reasons.append("interesting_local_fyi_story")
+        if is_lifestyle_or_outdoor_signal(item):
+            reasons.append("outdoor_lifestyle_or_local_experience_relevance")
+        return reasons
+    if (
+        score["category"] == "other"
+        and score["practical_usefulness"] <= 1
+        and not is_lifestyle_or_outdoor_signal(item)
+    ):
         reasons.append("blocked_other_category_low_practical_value")
         return reasons
     if score.get("post_decision") == "post":
