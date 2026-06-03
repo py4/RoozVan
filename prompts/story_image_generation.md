@@ -26,6 +26,7 @@ The image should contain these parts, in Persian/Farsi, right-to-left:
 
 1. Category label
    Examples: هشدار محلی، خبر مهم، یادآوری، سلامت، حمل‌ونقل، قوانین شهری، آب‌وهوا
+   Place the category label in the upper-right area of the image.
 
 2. One main takeaway
    A short, clear sentence that says the most important thing.
@@ -65,6 +66,8 @@ Use enough spacing around text.
 Use no tiny footnotes.
 Use no screenshot of the English article.
 Use no fake logos, fake watermarks, or fake UI.
+Do not add the RoozVan / روز وَن logo, page name, brand mark, handle, or watermark. Branding will be added later as a post-processing step.
+Leave clean empty space in the bottom-left area so the RoozVan logo can be inserted there later.
 Use no clickbait or dramatic TV-breaking-news style.
 
 VISUAL DIRECTION:
