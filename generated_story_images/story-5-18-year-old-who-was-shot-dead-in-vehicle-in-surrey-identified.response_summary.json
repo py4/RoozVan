@@ -1,0 +1,31 @@
+{
+  "model": "openai/gpt-5.4-image-2",
+  "source_index": 5,
+  "title": "18-year-old who was shot dead in vehicle in Surrey identified",
+  "story_image_path": "generated_story_images/story-5-18-year-old-who-was-shot-dead-in-vehicle-in-surrey-identified.png",
+  "usage": {
+    "prompt_tokens": 3276,
+    "completion_tokens": 4236,
+    "total_tokens": 7512,
+    "cost": 0.146553,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.146553,
+      "upstream_inference_prompt_cost": 0.026208,
+      "upstream_inference_completions_cost": 0.120345
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 3787,
+      "audio_tokens": 0
+    }
+  },
+  "id": "gen-1780453439-kkPpOO8oMXpEfPJIATVB",
+  "assistant_content": null
+}

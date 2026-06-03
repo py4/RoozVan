@@ -1,31 +1,31 @@
 {
-  "model": "google/gemini-3-pro-image-preview",
+  "model": "openai/gpt-5.4-image-2",
   "source_index": 20,
   "title": "Manny Malhotra named Vancouver Canucks head coach",
-  "story_image_path": "generated_story_images/story-20-manny-malhotra-named-vancouver-canucks-head-coach.jpg",
+  "story_image_path": "generated_story_images/story-20-manny-malhotra-named-vancouver-canucks-head-coach.png",
   "usage": {
-    "prompt_tokens": 1530,
-    "completion_tokens": 1885,
-    "total_tokens": 3415,
-    "cost": 0.142368,
+    "prompt_tokens": 3181,
+    "completion_tokens": 4153,
+    "total_tokens": 7334,
+    "cost": 0.138404,
     "is_byok": false,
     "prompt_tokens_details": {
-      "cached_tokens": 0,
+      "cached_tokens": 1024,
       "cache_write_tokens": 0,
       "audio_tokens": 0,
       "video_tokens": 0
     },
     "cost_details": {
-      "upstream_inference_cost": 0.142368,
-      "upstream_inference_prompt_cost": 0.00306,
-      "upstream_inference_completions_cost": 0.139308
+      "upstream_inference_cost": 0.138404,
+      "upstream_inference_prompt_cost": 0.019304,
+      "upstream_inference_completions_cost": 0.1191
     },
     "completion_tokens_details": {
-      "reasoning_tokens": 409,
-      "image_tokens": 1120,
+      "reasoning_tokens": 0,
+      "image_tokens": 3787,
       "audio_tokens": 0
     }
   },
-  "id": "gen-1780453214-Jy54f4lXOmA2K6ItHm2u",
+  "id": "gen-1780453416-QmLK14GcCxpqzKvi1XIE",
   "assistant_content": null
 }

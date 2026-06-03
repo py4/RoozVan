@@ -18,7 +18,6 @@ The Story should answer, at a glance:
 3. Who is affected?
 4. What should people do next, if anything?
 5. When and where does this apply?
-6. What is the trusted source/date?
 
 Use Story style only: urgent, temporary, simple, useful in the moment.
 
@@ -36,10 +35,6 @@ The image should contain these parts, in Persian/Farsi, right-to-left:
 
 4. Action / date / location
    One short line telling people what to check, avoid, do, or remember.
-
-5. Source/date
-   A small but readable line such as:
-   منبع: CBC — ۱ ژوئن ۲۰۲۶
 
 TEXT LIMIT:
 Ideal visible Persian text: 25-45 words.
@@ -93,7 +88,6 @@ Focus on:
 * actionability
 * local relevance
 * clarity for immigrants/newcomers
-* trusted source/date
 
 Ignore:
 
@@ -117,9 +111,6 @@ RECOMMENDED STORY TEMPLATE:
 
 [Action]
 یک اقدام، تاریخ، محل، یا چیزی که باید چک شود.
-
-[Source]
-منبع: نام منبع — تاریخ
 
 The final image should feel like:
 "یک دوست آگاه فارسی‌زبان در ونکوور، خبر مهم را ساده و قابل‌استفاده توضیح داده است."

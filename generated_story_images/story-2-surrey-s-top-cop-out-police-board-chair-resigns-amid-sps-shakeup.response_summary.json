@@ -1,31 +1,31 @@
 {
-  "model": "google/gemini-3-pro-image-preview",
+  "model": "openai/gpt-5.4-image-2",
   "source_index": 2,
   "title": "Surrey's top cop out, police board chair resigns amid SPS shakeup",
-  "story_image_path": "generated_story_images/story-2-surrey-s-top-cop-out-police-board-chair-resigns-amid-sps-shakeup.jpg",
+  "story_image_path": "generated_story_images/story-2-surrey-s-top-cop-out-police-board-chair-resigns-amid-sps-shakeup.png",
   "usage": {
-    "prompt_tokens": 2506,
-    "completion_tokens": 1751,
-    "total_tokens": 4257,
-    "cost": 0.14324,
+    "prompt_tokens": 4114,
+    "completion_tokens": 4164,
+    "total_tokens": 8278,
+    "cost": 0.146033,
     "is_byok": false,
     "prompt_tokens_details": {
-      "cached_tokens": 0,
+      "cached_tokens": 1024,
       "cache_write_tokens": 0,
       "audio_tokens": 0,
       "video_tokens": 0
     },
     "cost_details": {
-      "upstream_inference_cost": 0.14324,
-      "upstream_inference_prompt_cost": 0.005012,
-      "upstream_inference_completions_cost": 0.138228
+      "upstream_inference_cost": 0.146033,
+      "upstream_inference_prompt_cost": 0.026768,
+      "upstream_inference_completions_cost": 0.119265
     },
     "completion_tokens_details": {
-      "reasoning_tokens": 319,
-      "image_tokens": 1120,
+      "reasoning_tokens": 0,
+      "image_tokens": 3787,
       "audio_tokens": 0
     }
   },
-  "id": "gen-1780453193-FDRYfCFvupBltCGTQ4eI",
+  "id": "gen-1780453416-BDvFLkC7RKAhQU3pt3rV",
   "assistant_content": null
 }

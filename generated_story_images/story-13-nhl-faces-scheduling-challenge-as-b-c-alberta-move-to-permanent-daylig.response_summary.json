@@ -1,13 +1,13 @@
 {
-  "model": "google/gemini-3-pro-image-preview",
+  "model": "openai/gpt-5.4-image-2",
   "source_index": 13,
   "title": "NHL faces scheduling challenge as B.C., Alberta move to permanent daylight time",
-  "story_image_path": "generated_story_images/story-13-nhl-faces-scheduling-challenge-as-b-c-alberta-move-to-permanent-daylig.jpg",
+  "story_image_path": "generated_story_images/story-13-nhl-faces-scheduling-challenge-as-b-c-alberta-move-to-permanent-daylig.png",
   "usage": {
-    "prompt_tokens": 2029,
-    "completion_tokens": 2203,
-    "total_tokens": 4232,
-    "cost": 0.14771,
+    "prompt_tokens": 3645,
+    "completion_tokens": 4160,
+    "total_tokens": 7805,
+    "cost": 0.148365,
     "is_byok": false,
     "prompt_tokens_details": {
       "cached_tokens": 0,
@@ -16,16 +16,16 @@
       "video_tokens": 0
     },
     "cost_details": {
-      "upstream_inference_cost": 0.14771,
-      "upstream_inference_prompt_cost": 0.004058,
-      "upstream_inference_completions_cost": 0.143652
+      "upstream_inference_cost": 0.148365,
+      "upstream_inference_prompt_cost": 0.02916,
+      "upstream_inference_completions_cost": 0.119205
     },
     "completion_tokens_details": {
-      "reasoning_tokens": 771,
-      "image_tokens": 1120,
+      "reasoning_tokens": 0,
+      "image_tokens": 3787,
       "audio_tokens": 0
     }
   },
-  "id": "gen-1780453193-owTJzA94X7itF78O2Yef",
+  "id": "gen-1780453658-kvRMwPx0asEOuT5fJIxZ",
   "assistant_content": null
 }
