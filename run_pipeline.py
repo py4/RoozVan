@@ -27,7 +27,7 @@ def main() -> int:
     parser.add_argument("--model", default="openrouter/owl-alpha", help="OpenRouter model name.")
     parser.add_argument(
         "--story-image-model",
-        default="google/gemini-3-pro-image-preview",
+        default="openai/gpt-5.4-image-2",
         help="OpenRouter image generation model name.",
     )
     parser.add_argument("--timeout", type=int, default=60, help="Network and OpenRouter timeout in seconds.")
