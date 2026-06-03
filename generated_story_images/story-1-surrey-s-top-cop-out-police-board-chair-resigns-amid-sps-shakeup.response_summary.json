@@ -1,0 +1,31 @@
+{
+  "model": "google/gemini-3-pro-image-preview",
+  "source_index": 1,
+  "title": "Surrey's top cop out, police board chair resigns amid SPS shakeup",
+  "story_image_path": "generated_story_images/story-1-surrey-s-top-cop-out-police-board-chair-resigns-amid-sps-shakeup.jpg",
+  "usage": {
+    "prompt_tokens": 2121,
+    "completion_tokens": 1652,
+    "total_tokens": 3773,
+    "cost": 0.142242,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.142242,
+      "upstream_inference_prompt_cost": 0.004242,
+      "upstream_inference_completions_cost": 0.138
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 300,
+      "image_tokens": 1120,
+      "audio_tokens": 0
+    }
+  },
+  "id": "gen-1780451810-diPjGOHGbU5gQUJ7NaMG",
+  "assistant_content": null
+}
