@@ -1,13 +1,13 @@
 {
-  "model": "recraft/recraft-v4.1",
+  "model": "google/gemini-3-pro-image-preview",
   "prompt": "Generate a vertical Instagram Story image for RoozVan, an Iranian community news page for Vancouver, BC.\n\nScene: modern Vancouver street near the seawall, subtle North Shore mountains in the background, warm natural light, clean editorial Instagram news style, realistic but polished, not cartoonish.\n\nInclude this exact Persian/Farsi headline as large readable text, right-to-left, centered in the upper third:\nونکوور؛ خبر مهم برای ایرانیان\n\nInclude this exact smaller Persian/Farsi subheading below it:\nخلاصه‌ی ساده و قابل فهم در استوری امروز\n\nDesign notes: leave safe margins, make the text high contrast, use elegant Persian typography, no English text, no logos, no watermark.",
   "assistant_content": null,
-  "image_count": 1,
+  "image_count": 2,
   "usage": {
-    "prompt_tokens": 221,
-    "completion_tokens": 4175,
-    "total_tokens": 4396,
-    "cost": 0.04,
+    "prompt_tokens": 148,
+    "completion_tokens": 1516,
+    "total_tokens": 1664,
+    "cost": 0.136712,
     "is_byok": false,
     "prompt_tokens_details": {
       "cached_tokens": 0,
@@ -16,15 +16,15 @@
       "video_tokens": 0
     },
     "cost_details": {
-      "upstream_inference_cost": 0.04,
-      "upstream_inference_prompt_cost": 0,
-      "upstream_inference_completions_cost": 0.04
+      "upstream_inference_cost": 0.136712,
+      "upstream_inference_prompt_cost": 0.000296,
+      "upstream_inference_completions_cost": 0.136416
     },
     "completion_tokens_details": {
-      "reasoning_tokens": 0,
-      "image_tokens": 4175,
+      "reasoning_tokens": 168,
+      "image_tokens": 1120,
       "audio_tokens": 0
     }
   },
-  "id": "gen-1780445156-k0KiRAiWDOJtt0MnhQpR"
+  "id": "gen-1780445541-74EqnqfkwdZBOTWlvKHv"
 }
