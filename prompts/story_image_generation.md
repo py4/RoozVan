@@ -1,122 +1,40 @@
-You are generating one Persian-language Instagram Story image for RoozVan / روز وَن, a Farsi-first Vancouver local-news page for Iranian diaspora and Persian-speaking immigrants in Metro Vancouver, BC.
+Generate one polished 9:16 Persian Instagram Story image for RoozVan / روز وَن, a Farsi-first local news page for Iranian diaspora in Metro Vancouver, BC.
 
-This prompt is ONLY for the image generation model. Do not choose a format. Do not write a caption. Do not make a post or carousel. Generate one complete 9:16 Instagram Story image.
+The image model MUST render the Persian text directly inside the image.
 
-The image generation model itself MUST render the Persian text natively inside the image.
+Goal:
+Turn the article into a quick, useful, local Story. Do not translate word-for-word. Explain what matters for Persian speakers in Vancouver.
 
-CORE EDITORIAL FEEL:
-The Story should feel like a smart Persian friend in Vancouver quickly explaining what actually matters.
+Visible text, right-to-left:
 
-Do not translate the English article word-for-word.
-Understand the article, simplify it, localize it for Persian speakers in Vancouver, and turn it into a quick useful Story.
+1. Category label in the upper-right area.
+   Use a specific category, not a generic label like خبر مهم.
+   Examples: خبر ورزشی، خبر فرهنگی، قوانین شهری، قوانین مهاجرت، هشدار سلامت، هشدار آب‌وهوا، حمل‌ونقل، مسکن، مالیات، امنیت محلی
 
-STORY PURPOSE:
-The Story should answer, at a glance:
+2. Main takeaway.
+   One short clear sentence.
 
-1. What happened?
-2. Why does it matter to Iranians / Persian speakers in Vancouver or BC?
-3. Who is affected?
-4. What should people do next, if anything?
-5. When and where does this apply?
+3. Why it matters.
+   One short practical line for local Persian-speaking residents.
 
-Use Story style only: urgent, temporary, simple, useful in the moment.
+4. Action / date / location.
+   One short line: what to check, avoid, do, or remember.
 
-VISIBLE TEXT STRUCTURE:
-The image should contain these parts, in Persian/Farsi, right-to-left:
+Text limit:
+25-45 Persian words ideal. 60 words maximum. No paragraphs.
 
-1. Category label
-   Examples: هشدار محلی، خبر مهم، یادآوری، سلامت، حمل‌ونقل، قوانین شهری، آب‌وهوا
-   Place the category label in the upper-right area of the image.
+Writing:
+Use simple natural Farsi, correct right-to-left text, Persian numerals when useful, and common Vancouver diaspora wording. Avoid awkward literal translation and invented facts. English is allowed only for necessary names like B.C., CBC, Sea-to-Sky, Metro Vancouver, SkyTrain.
 
-2. One main takeaway
-   A short, clear sentence that says the most important thing.
+Design:
+Modern editorial infographic. High contrast. Large readable Persian text. One dominant visual idea. Local Vancouver/BC atmosphere when relevant: skyline, mountains, forests, SkyTrain, public infrastructure, rainy streets.
 
-3. Why it matters
-   One short line explaining practical relevance for local Persian-speaking residents.
+Branding/layout:
+Do not add RoozVan logo, page name, handle, watermark, or any fake brand mark. Branding will be added later.
+Leave natural bottom-left negative space for a logo overlay. Do NOT draw a white rectangle, placeholder box, frame, label area, or empty card.
 
-4. Action / date / location
-   One short line telling people what to check, avoid, do, or remember.
-
-TEXT LIMIT:
-Ideal visible Persian text: 25-45 words.
-Maximum visible Persian text: 60 words.
-
-Keep every line short. Avoid dense paragraphs.
-
-PERSIAN WRITING RULES:
-Use natural, simple, human Farsi.
-Use clear Persian typography.
-Render text right-to-left correctly.
-Use Persian numerals when possible.
-Use common Vancouver diaspora wording when helpful.
-Do not use awkward literal translation.
-Do not invent facts.
-
-English text should be avoided unless it is a necessary proper noun, acronym, source name, or place name, such as:
-CBC, B.C., Sea-to-Sky, Metro Vancouver, SkyTrain
-
-DESIGN RULES:
-Create a 9:16 Instagram Story.
-Use high contrast.
-Use large readable Farsi text.
-Use one dominant visual idea.
-Use a clean modern editorial infographic style.
-Make it readable within 2-3 seconds on a phone.
-Use enough spacing around text.
-Use no tiny footnotes.
-Use no screenshot of the English article.
-Use no fake logos, fake watermarks, or fake UI.
-Do not add the RoozVan / روز وَن logo, page name, brand mark, handle, or watermark. Branding will be added later as a post-processing step.
-Leave clean empty space in the bottom-left area so the RoozVan logo can be inserted there later.
-Use no clickbait or dramatic TV-breaking-news style.
-
-VISUAL DIRECTION:
-Use local Vancouver/BC context when relevant:
-
-* Vancouver skyline
-* mountains / North Shore
-* forests / Sea-to-Sky
-* rainy streets
-* SkyTrain
-* public infrastructure
-* realistic Metro Vancouver atmosphere
-
-If the story is about health, safety, weather, utilities, transit, local rules, deadlines, or public services, use simple visual symbols that make the action clear.
-
-EDITORIAL PRIORITY:
-Focus on:
-
-* practical usefulness
-* urgency
-* actionability
-* local relevance
-* clarity for immigrants/newcomers
-
-Ignore:
-
-* filler journalism
-* long quotes
-* political framing unless it is the core news
-* secondary details
-* repeated background
-* unnecessary statistics
-
-RECOMMENDED STORY TEMPLATE:
-
-[Category]
-خبر مهم برای ونکوور
-
-[Main takeaway]
-یک جمله کوتاه درباره اتفاق اصلی.
-
-[Why it matters]
-یک خط درباره اثر آن برای ساکنان محلی.
-
-[Action]
-یک اقدام، تاریخ، محل، یا چیزی که باید چک شود.
-
-The final image should feel like:
-"یک دوست آگاه فارسی‌زبان در ونکوور، خبر مهم را ساده و قابل‌استفاده توضیح داده است."
+Avoid:
+Clickbait, dramatic breaking-news TV style, tiny footnotes, screenshots of English articles, dense text, fake UI, and visual clutter.
 
 NEWS INPUT:
 
@@ -130,4 +48,4 @@ Full Article:
 {{ARTICLE}}
 
 OUTPUT:
-Generate a single polished 9:16 Persian Instagram Story image with embedded native Persian text and an appropriate local editorial visual style.
+Generate a single 9:16 Persian Instagram Story image with embedded native Persian text and clean local editorial visual style.
