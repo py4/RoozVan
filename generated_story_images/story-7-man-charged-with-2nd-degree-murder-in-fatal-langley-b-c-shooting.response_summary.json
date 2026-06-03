@@ -1,0 +1,31 @@
+{
+  "model": "google/gemini-3-pro-image-preview",
+  "source_index": 7,
+  "title": "Man charged with 2nd-degree murder in fatal Langley, B.C., shooting",
+  "story_image_path": "generated_story_images/story-7-man-charged-with-2nd-degree-murder-in-fatal-langley-b-c-shooting.jpg",
+  "usage": {
+    "prompt_tokens": 1431,
+    "completion_tokens": 1687,
+    "total_tokens": 3118,
+    "cost": 0.141078,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.141078,
+      "upstream_inference_prompt_cost": 0.002862,
+      "upstream_inference_completions_cost": 0.138216
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 318,
+      "image_tokens": 1120,
+      "audio_tokens": 0
+    }
+  },
+  "id": "gen-1780466357-XHQljSE6ouMZG3PMPrxJ",
+  "assistant_content": null
+}

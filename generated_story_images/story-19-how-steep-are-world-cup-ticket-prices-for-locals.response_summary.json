@@ -1,0 +1,31 @@
+{
+  "model": "google/gemini-3-pro-image-preview",
+  "source_index": 19,
+  "title": "How steep are World Cup ticket prices for locals?",
+  "story_image_path": "generated_story_images/story-19-how-steep-are-world-cup-ticket-prices-for-locals.jpg",
+  "usage": {
+    "prompt_tokens": 2144,
+    "completion_tokens": 1809,
+    "total_tokens": 3953,
+    "cost": 0.143488,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.143488,
+      "upstream_inference_prompt_cost": 0.004288,
+      "upstream_inference_completions_cost": 0.1392
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 400,
+      "image_tokens": 1120,
+      "audio_tokens": 0
+    }
+  },
+  "id": "gen-1780466336-Obiyh9tB83QkLGk6CTit",
+  "assistant_content": null
+}
