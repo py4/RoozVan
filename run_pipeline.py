@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import time
 from pathlib import Path
 
 from roozvan.pipeline import PipelineConfig, build_default_pipeline
@@ -102,10 +104,13 @@ def main() -> int:
         generate_story_images=not args.skip_story_images,
         story_image_output_dir=Path(args.story_image_output_dir),
     )
+    started_at = time.perf_counter()
     result = build_default_pipeline().run(config)
+    total_elapsed = time.perf_counter() - started_at
 
     if args.json:
         print(json.dumps(result.selected_as_dicts(), ensure_ascii=False, indent=2))
+        print_timing_summary(result.stage_timings, total_elapsed, file=sys.stderr)
         return 0
 
     print(f"Extracted: {len(result.items)}")
@@ -127,7 +132,25 @@ def main() -> int:
         print(f"   story_image_path={news.story_image_path}")
         print(f"   {news.url}")
         print()
+    print_timing_summary(result.stage_timings, total_elapsed)
     return 0
+
+
+def print_timing_summary(stage_timings: list[tuple[str, float]], total_elapsed: float, *, file=sys.stdout) -> None:
+    print("Timing:", file=file)
+    for stage_name, elapsed in stage_timings:
+        print(f"  {stage_name}: {format_duration(elapsed)}", file=file)
+    print(f"  total: {format_duration(total_elapsed)}", file=file)
+
+
+def format_duration(seconds: float) -> str:
+    if seconds < 1:
+        return f"{seconds * 1000:.0f}ms"
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes = int(seconds // 60)
+    remaining_seconds = seconds % 60
+    return f"{minutes}m {remaining_seconds:.1f}s"
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Protocol
@@ -51,6 +52,7 @@ class PipelineResult:
     deduped_items: list[ScoredItem] = field(default_factory=list)
     selected_items: list[ScoredItem] = field(default_factory=list)
     post_drafts: list[PostDraft] = field(default_factory=list)
+    stage_timings: list[tuple[str, float]] = field(default_factory=list)
 
     def selected_as_dicts(self) -> list[dict]:
         return [item.to_dict() for item in self.selected_items]
@@ -70,7 +72,9 @@ class Pipeline:
     def run(self, config: PipelineConfig) -> PipelineResult:
         result = PipelineResult()
         for stage in self.stages:
+            started_at = time.perf_counter()
             result = stage.run(result, config)
+            result.stage_timings.append((stage.name, time.perf_counter() - started_at))
         return result
 
 
