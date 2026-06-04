@@ -15,9 +15,12 @@ Rules:
 - Do not repeat the exact same headline/subline that should appear in the image.
 - If the item is mostly FYI, make that clear and keep the tone light.
 - If the item is practical, include dates, costs, locations, rules, or what this means for the audience.
-- Include 5-8 relevant hashtags at the end of `caption_fa`.
-- Hashtags should mix English and Persian when useful, for example #Vancouver, #ونکوور, #BC, #بریتش_کلمبیا, and topic-specific tags such as #حمل_ونقل, #فری, #جام_جهانی, #کمپینگ, #مهاجرت, #مسکن, #آب_وهوا.
-- Use only relevant hashtags. Do not stuff generic tags.
+- Structure `caption_fa` in short paragraphs. Start each paragraph with a bullet (•) or a simple, Instagram-friendly emoji that renders reliably in RTL text (e.g. 📌 ✅ 🔎 🗓️) and fits the line — do not use a different icon on every line.
+- Do not use symbol-style emoji that often misalign in Instagram RTL captions, especially ℹ️, ©️, ®️, ™️, ↗️, or text-symbol icons with variation selectors.
+- Put a blank line between paragraphs for readability.
+- Include 5-8 hashtags at the end of `caption_fa`.
+- Hashtags must match this post's topic only. Mix English and Persian when useful (e.g. #Vancouver, #ونکوور, #BC).
+- Do not use hashtags for unrelated topics. Do not stuff generic tags.
 
 Return JSON only:
 
