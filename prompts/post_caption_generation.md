@@ -15,7 +15,7 @@ Rules:
 - Treat the image text and caption as two different jobs:
   - `image_headline_fa`, `image_subline_fa`, and `category_label_fa` are for the visual hook only.
   - `caption_fa` must add context, specifics, implications, and practical details that are not already stated in the image text.
-- Do not repeat the image headline/subline in `caption_fa`, even with slightly different wording. If the image says the main point, the caption should immediately move to "what this means", dates/costs/eligibility, uncertainty, background, or next steps.
+- `caption_fa` may briefly restate the main point from the image when it makes the caption clearer, but it must quickly add new value: what this means, dates/costs/eligibility, uncertainty, background, or next steps.
 - Keep `image_headline_fa` and `image_subline_fa` very short and broad. Do not put all useful details in the image; reserve the concrete details for `caption_fa`.
 - If the item is mostly FYI, make that clear and keep the tone light.
 - If the item is practical, include dates, costs, locations, rules, or what this means for the audience.
