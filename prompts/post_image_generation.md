@@ -7,13 +7,15 @@ Use this post context:
 ```
 
 Goal:
-Make a strong Instagram cover/card, not a full article. The image should communicate the main hook at a glance. Caption will explain details later.
+Make a strong Instagram cover/card, not a full article. The image should communicate only the main hook at a glance. Caption will explain the concrete details, implications, and next steps later.
 
 Text rules:
 - Render Persian text natively inside the image.
 - Use a short, clear Persian headline and one short subline.
 - Include a short category label in the upper-right on a solid background color (small pill or badge) for readability.
 - Keep total Persian text under ۱۸ words.
+- Use the provided `image_headline_fa`, `image_subline_fa`, and `category_label_fa` from the context when they are present.
+- Do not add extra facts, dates, dollar amounts, eligibility details, or explanatory sentences beyond the provided headline/subline. Those belong in the caption.
 - Do not repeat long article phrasing.
 - Use standard Persian numerals where appropriate.
 
