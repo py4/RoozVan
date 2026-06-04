@@ -19,6 +19,7 @@ Render exactly four distinct text elements:
 - Font Style: Clean, modern, bold, and solid Persian/Arabic typography. 
 - Text Effects: Text must be crisp and completely flat. Crucially, do NOT use heavy drop shadows, glowing effects, outer glows, or blurry outlines on the text, as these distort Persian characters.
 - Formatting: Ensure zero typos, zero word-repetitions, and correct right-to-left layout flow. Use standard Persian numerals (e.g., ۵٪, ۱۶) where appropriate. English words are strictly limited to necessary regional proper names (e.g., B.C., Surrey, SkyTrain).
+- Avoid awkward Persian transliteration of English terms. If there is a common, natural Persian equivalent, use it; otherwise keep the original English phrase. For example, use "افزایش ناگهانی قیمت" or "surge pricing", never "سورج پرایسینگ".
 
 ### VISUAL DESIGN & LAYOUT
 - Style: Modern, minimalist editorial infographic. High contrast for instant readability while scrolling.

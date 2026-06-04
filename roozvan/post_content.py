@@ -18,11 +18,28 @@ from roozvan.scoring import is_unsupported_structured_output_error, parse_json_o
 from roozvan.story_images import (
     DEFAULT_GEMINI_STORY_IMAGE_MODEL,
     DEFAULT_STORY_IMAGE_MODEL,
+    build_openrouter_image_request_body,
     extension_for_mime_type,
     extract_gemini_inline_image,
     parse_data_url,
     post_gemini_image_request_with_config,
     post_openrouter_image_request,
+)
+
+# Instagram-friendly bullets the caption formatter recognizes.
+CAPTION_BULLET_MARKERS = (
+    "📌",
+    "✅",
+    "🔎",
+    "🗓️",
+    "📍",
+    "💡",
+    "⚽",
+    "🎉",
+    "🎭",
+    "🎶",
+    "🎨",
+    "•",
 )
 
 
@@ -110,12 +127,13 @@ def generate_post_content_for_scored_items(
     image_client: OpenRouterClient,
     output_dir: Path,
     image_model: str = DEFAULT_STORY_IMAGE_MODEL,
-    image_provider: str = "openrouter",
+    image_provider: str = "gemini",
     caption_max_tokens: int = 900,
     image_max_tokens: int | None = 12000,
     workers: int = 4,
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
+    generate_images: bool = False,
 ) -> list[ScoredItem]:
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[ScoredItem | None] = [None] * len(items)
@@ -138,6 +156,7 @@ def generate_post_content_for_scored_items(
             image_max_tokens=image_max_tokens,
             apply_logo_overlay_enabled=apply_logo_overlay_enabled,
             logo_path=logo_path,
+            generate_images=generate_images,
         )
         return index, completed
 
@@ -171,6 +190,70 @@ def generate_post_content_for_scored_items(
     return [item for item in results if item is not None]
 
 
+def generate_post_images_for_scored_items(
+    items: list[ScoredItem],
+    *,
+    image_prompt_template: str,
+    carousel_image_prompt_template: str,
+    image_client: OpenRouterClient,
+    output_dir: Path,
+    image_model: str = DEFAULT_STORY_IMAGE_MODEL,
+    image_provider: str = "gemini",
+    image_max_tokens: int | None = 12000,
+    workers: int = 4,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
+) -> list[ScoredItem]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    results: list[ScoredItem | None] = [None] * len(items)
+
+    def generate_indexed_images(index: int, scored_item: ScoredItem) -> tuple[int, ScoredItem]:
+        if scored_item.format_selected not in {"post", "carousel_post"}:
+            return index, scored_item
+        completed = generate_post_images_only(
+            scored_item,
+            image_prompt_template=image_prompt_template,
+            carousel_image_prompt_template=carousel_image_prompt_template,
+            image_client=image_client,
+            output_dir=output_dir,
+            image_model=image_model,
+            image_provider=image_provider,
+            image_max_tokens=image_max_tokens,
+            apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+            logo_path=logo_path,
+        )
+        return index, completed
+
+    max_workers = max(1, min(workers, len(items) or 1))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(generate_indexed_images, index, scored_item): (index, scored_item)
+            for index, scored_item in enumerate(items)
+        }
+        for future in concurrent.futures.as_completed(futures):
+            index, scored_item = futures[future]
+            try:
+                completed_index, completed_item = future.result()
+            except (OpenRouterError, ValueError, json.JSONDecodeError) as exc:
+                print(
+                    f"warning: failed to generate post images for item {scored_item.source_index} "
+                    f"({scored_item.item.title}): {exc}",
+                    file=sys.stderr,
+                )
+                results[index] = scored_item
+            except Exception as exc:  # noqa: BLE001 - pipeline should continue on one failed post.
+                print(
+                    f"warning: unexpected failure generating post images for item {scored_item.source_index} "
+                    f"({scored_item.item.title}): {exc}",
+                    file=sys.stderr,
+                )
+                results[index] = scored_item
+            else:
+                results[completed_index] = completed_item
+
+    return [item for item in results if item is not None]
+
+
 def generate_post_content(
     scored_item: ScoredItem,
     *,
@@ -187,6 +270,7 @@ def generate_post_content(
     image_max_tokens: int | None,
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
+    generate_images: bool = False,
 ) -> ScoredItem:
     if scored_item.format_selected == "carousel_post":
         return generate_carousel_content(
@@ -202,6 +286,7 @@ def generate_post_content(
             image_max_tokens=image_max_tokens,
             apply_logo_overlay_enabled=apply_logo_overlay_enabled,
             logo_path=logo_path,
+            generate_images=generate_images,
         )
 
     context = build_post_context(scored_item)
@@ -211,6 +296,86 @@ def generate_post_content(
         caption_client,
         max_tokens=caption_max_tokens,
     )
+    item = replace(
+        scored_item.item,
+        post_caption_fa=caption["caption_fa"],
+    )
+    evaluation = {
+        **scored_item.evaluation,
+        "post_caption": caption,
+    }
+    updated = replace(scored_item, item=item, evaluation=evaluation)
+    if not generate_images:
+        return updated
+
+    image_context = {
+        **context,
+        "image_headline_fa": caption["image_headline_fa"],
+        "image_subline_fa": caption["image_subline_fa"],
+        "category_label_fa": caption["category_label_fa"],
+    }
+    image_path = generate_post_image(
+        updated,
+        image_prompt_template,
+        image_context,
+        image_client,
+        output_dir=output_dir,
+        model=image_model,
+        provider=image_provider,
+        max_tokens=image_max_tokens,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
+    )
+    item = replace(updated.item, post_image_path=str(image_path))
+    return replace(updated, item=item)
+
+
+def generate_post_images_only(
+    scored_item: ScoredItem,
+    *,
+    image_prompt_template: str,
+    carousel_image_prompt_template: str,
+    image_client: OpenRouterClient,
+    output_dir: Path,
+    image_model: str,
+    image_provider: str,
+    image_max_tokens: int | None,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
+) -> ScoredItem:
+    if scored_item.format_selected == "carousel_post":
+        carousel_eval = scored_item.evaluation.get("carousel_post") or {}
+        slides = normalize_carousel_slides(carousel_eval.get("slides"))
+        if not slides:
+            raise ValueError(
+                f"carousel_post slides missing for item {scored_item.source_index}; run text generation first"
+            )
+        context = build_post_context(scored_item)
+        image_paths = generate_carousel_images(
+            scored_item,
+            carousel_image_prompt_template,
+            context,
+            slides,
+            image_client,
+            output_dir=output_dir,
+            model=image_model,
+            provider=image_provider,
+            max_tokens=image_max_tokens,
+            apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+            logo_path=logo_path,
+        )
+        item = replace(
+            scored_item.item,
+            carousel_image_paths=[str(path) for path in image_paths],
+        )
+        return replace(scored_item, item=item)
+
+    caption = scored_item.evaluation.get("post_caption")
+    if not isinstance(caption, dict):
+        raise ValueError(
+            f"post_caption missing for item {scored_item.source_index}; run text generation first"
+        )
+    context = build_post_context(scored_item)
     image_context = {
         **context,
         "image_headline_fa": caption["image_headline_fa"],
@@ -229,16 +394,8 @@ def generate_post_content(
         apply_logo_overlay_enabled=apply_logo_overlay_enabled,
         logo_path=logo_path,
     )
-    item = replace(
-        scored_item.item,
-        post_image_path=str(image_path),
-        post_caption_fa=caption["caption_fa"],
-    )
-    evaluation = {
-        **scored_item.evaluation,
-        "post_caption": caption,
-    }
-    return replace(scored_item, item=item, evaluation=evaluation)
+    item = replace(scored_item.item, post_image_path=str(image_path))
+    return replace(scored_item, item=item)
 
 
 def generate_carousel_content(
@@ -255,6 +412,7 @@ def generate_carousel_content(
     image_max_tokens: int | None,
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
+    generate_images: bool = False,
 ) -> ScoredItem:
     context = build_post_context(scored_item)
     carousel = generate_carousel_plan(
@@ -264,8 +422,23 @@ def generate_carousel_content(
         max_tokens=max(caption_max_tokens, 1400),
     )
     slides = normalize_carousel_slides(carousel.get("slides"))
+    item = replace(
+        scored_item.item,
+        post_caption_fa=str(carousel.get("caption_fa") or ""),
+    )
+    evaluation = {
+        **scored_item.evaluation,
+        "carousel_post": {
+            **carousel,
+            "slides": slides,
+        },
+    }
+    updated = replace(scored_item, item=item, evaluation=evaluation)
+    if not generate_images:
+        return updated
+
     image_paths = generate_carousel_images(
-        scored_item,
+        updated,
         image_prompt_template,
         context,
         slides,
@@ -278,18 +451,10 @@ def generate_carousel_content(
         logo_path=logo_path,
     )
     item = replace(
-        scored_item.item,
+        updated.item,
         carousel_image_paths=[str(path) for path in image_paths],
-        post_caption_fa=str(carousel.get("caption_fa") or ""),
     )
-    evaluation = {
-        **scored_item.evaluation,
-        "carousel_post": {
-            **carousel,
-            "slides": slides,
-        },
-    }
-    return replace(scored_item, item=item, evaluation=evaluation)
+    return replace(updated, item=item)
 
 
 def build_post_context(scored_item: ScoredItem) -> dict[str, Any]:
@@ -307,6 +472,29 @@ def build_post_context(scored_item: ScoredItem) -> dict[str, Any]:
         "selection_gate_reasons": scored_item.evaluation.get("selection_gate_reasons"),
         "editorial_adjustment_reasons": scored_item.evaluation.get("editorial_adjustment_reasons"),
     }
+
+
+def normalize_caption_fa(caption: str) -> str:
+    """Ensure blank lines between Instagram caption bullet blocks and before hashtags."""
+    text = caption.strip()
+    if not text:
+        return text
+
+    hashtag_index = text.find("#")
+    if hashtag_index >= 0:
+        body = text[:hashtag_index].rstrip()
+        hashtags = text[hashtag_index:].strip()
+    else:
+        body = text
+        hashtags = ""
+
+    for marker in CAPTION_BULLET_MARKERS:
+        body = re.sub(rf"(?<!\n)\s*({re.escape(marker)})", r"\n\n\1", body)
+
+    body = re.sub(r"\n{3,}", "\n\n", body).strip()
+    if hashtags:
+        return f"{body}\n\n{hashtags}" if body else hashtags
+    return body
 
 
 def generate_post_caption(
@@ -334,7 +522,9 @@ def generate_post_caption(
             raise
         raw_response = client.ask(prompt, temperature=0.4, max_tokens=max_tokens)
     parsed = parse_json_object(raw_response)
-    return {key: str(parsed.get(key) or "") for key in CAPTION_RESPONSE_SCHEMA["required"]}
+    result = {key: str(parsed.get(key) or "") for key in CAPTION_RESPONSE_SCHEMA["required"]}
+    result["caption_fa"] = normalize_caption_fa(result["caption_fa"])
+    return result
 
 
 def generate_carousel_plan(
@@ -363,7 +553,7 @@ def generate_carousel_plan(
         raw_response = client.ask(prompt, temperature=0.35, max_tokens=max_tokens)
     parsed = parse_json_object(raw_response)
     return {
-        "caption_fa": str(parsed.get("caption_fa") or ""),
+        "caption_fa": normalize_caption_fa(str(parsed.get("caption_fa") or "")),
         "short_alt_text_fa": str(parsed.get("short_alt_text_fa") or ""),
         "slides": normalize_carousel_slides(parsed.get("slides")),
     }
@@ -387,6 +577,33 @@ def normalize_carousel_slides(value: Any) -> list[dict[str, str]]:
     if not 3 <= len(slides) <= 6:
         raise ValueError(f"Carousel must have 3-6 usable slides, got {len(slides)}")
     return slides
+
+
+def build_carousel_image_context(
+    context: dict[str, Any],
+    slide: dict[str, str],
+    *,
+    slide_number: int,
+    slide_count: int,
+) -> dict[str, Any]:
+    """Image-model context without JSON field names that leak into rendered text."""
+    image_context: dict[str, Any] = {
+        "slide_number": slide_number,
+        "slide_count": slide_count,
+        "headline": slide["headline_fa"],
+        "body": slide["body_fa"],
+    }
+    if slide_number == 1 and slide["category_label_fa"]:
+        image_context["upper_right_badge_text"] = slide["category_label_fa"]
+    if slide["visual_direction"]:
+        image_context["scene_notes"] = slide["visual_direction"]
+    image_context["is_first_slide"] = slide_number == 1
+    image_context["show_upper_right_badge"] = slide_number == 1 and bool(slide["category_label_fa"])
+    topic: dict[str, Any] = {
+        "title": context.get("title"),
+        "persian_angle": context.get("persian_angle"),
+    }
+    return {"topic": topic, "slide": image_context}
 
 
 def generate_carousel_images(
@@ -451,12 +668,12 @@ def generate_carousel_slide_image(
     apply_logo_overlay_enabled: bool,
     logo_path: Path,
 ) -> Path:
-    slide_context = {
-        **context,
-        "slide_number": slide_number,
-        "slide_count": slide_count,
-        "slide": slide,
-    }
+    slide_context = build_carousel_image_context(
+        context,
+        slide,
+        slide_number=slide_number,
+        slide_count=slide_count,
+    )
     prompt = prompt_template.replace("{{CAROUSEL_CONTEXT}}", json.dumps(slide_context, ensure_ascii=False, indent=2))
     output_path = output_dir / f"{carousel_slide_filename_stem(scored_item, slide_number)}"
     if provider == "gemini":
@@ -487,18 +704,7 @@ def generate_carousel_slide_image(
     if provider != "openrouter":
         raise ValueError(f"Unsupported carousel image provider: {provider}")
 
-    body: dict[str, Any] = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "modalities": ["image", "text"],
-        "image_config": {
-            "aspect_ratio": "4:5",
-            "image_size": "1K",
-        },
-        "stream": False,
-    }
-    if max_tokens is not None:
-        body["max_tokens"] = max_tokens
+    body = build_openrouter_image_request_body(model=model, prompt=prompt, aspect_ratio="4:5")
     response = post_openrouter_image_request(client, body)
     message = response.get("choices", [{}])[0].get("message", {})
     images = message.get("images") or []
@@ -534,7 +740,7 @@ def generate_post_image(
     *,
     output_dir: Path,
     model: str = DEFAULT_STORY_IMAGE_MODEL,
-    provider: str = "openrouter",
+    provider: str = "gemini",
     max_tokens: int | None = 12000,
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
@@ -560,18 +766,7 @@ def generate_post_image(
     if provider != "openrouter":
         raise ValueError(f"Unsupported post image provider: {provider}")
 
-    body: dict[str, Any] = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "modalities": ["image", "text"],
-        "image_config": {
-            "aspect_ratio": "4:5",
-            "image_size": "1K",
-        },
-        "stream": False,
-    }
-    if max_tokens is not None:
-        body["max_tokens"] = max_tokens
+    body = build_openrouter_image_request_body(model=model, prompt=prompt, aspect_ratio="4:5")
     response = post_openrouter_image_request(client, body)
     message = response.get("choices", [{}])[0].get("message", {})
     images = message.get("images") or []

@@ -17,6 +17,9 @@ class OpenRouterError(RuntimeError):
     """Raised when OpenRouter returns an error or an unexpected response."""
 
 
+RETRYABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
 def load_env_file(path: Path) -> None:
     """Load simple KEY: VALUE or KEY=VALUE pairs into os.environ if unset."""
     if not path.exists():
@@ -112,33 +115,58 @@ class OpenRouterClient:
             method="POST",
         )
 
-        raw_response = self._post_with_retries(request)
-
-        try:
-            parsed = json.loads(raw_response)
-        except json.JSONDecodeError as exc:
-            raise OpenRouterError(f"OpenRouter returned invalid JSON: {raw_response}") from exc
+        parsed = self._post_json_with_retries(request)
 
         if not isinstance(parsed, dict):
             raise OpenRouterError(f"OpenRouter returned unexpected JSON: {parsed!r}")
-        if "error" in parsed:
-            raise OpenRouterError(f"OpenRouter error: {parsed['error']}")
         return parsed
 
-    def _post_with_retries(self, request: urllib.request.Request) -> str:
+    def _post_json_with_retries(self, request: urllib.request.Request) -> dict[str, Any]:
         for attempt in range(self.max_retries + 1):
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    return response.read().decode("utf-8")
+                    raw_response = response.read().decode("utf-8")
             except urllib.error.HTTPError as exc:
                 error_body = exc.read().decode("utf-8", errors="replace")
-                if exc.code == 429 and attempt < self.max_retries:
-                    time.sleep(2 ** attempt * 5)
+                if is_retryable_status(exc.code) and attempt < self.max_retries:
+                    sleep_before_retry(attempt)
                     continue
                 raise OpenRouterError(f"OpenRouter HTTP {exc.code}: {error_body}") from exc
             except urllib.error.URLError as exc:
                 raise OpenRouterError(f"Failed to call OpenRouter: {exc}") from exc
+
+            try:
+                parsed = json.loads(raw_response)
+            except json.JSONDecodeError as exc:
+                raise OpenRouterError(f"OpenRouter returned invalid JSON: {raw_response}") from exc
+
+            if isinstance(parsed, dict) and "error" in parsed:
+                if is_retryable_openrouter_error(parsed["error"]) and attempt < self.max_retries:
+                    sleep_before_retry(attempt)
+                    continue
+                raise OpenRouterError(f"OpenRouter error: {parsed['error']}")
+            return parsed
+
         raise OpenRouterError("OpenRouter retry loop ended unexpectedly.")
+
+
+def is_retryable_status(status_code: int) -> bool:
+    return status_code in RETRYABLE_HTTP_STATUS_CODES
+
+
+def is_retryable_openrouter_error(error: Any) -> bool:
+    if not isinstance(error, dict):
+        return False
+    code = error.get("code")
+    try:
+        status_code = int(code)
+    except (TypeError, ValueError):
+        return False
+    return is_retryable_status(status_code)
+
+
+def sleep_before_retry(attempt: int) -> None:
+    time.sleep(2 ** attempt * 5)
 
 
 if __name__ == "__main__":

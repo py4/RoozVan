@@ -26,6 +26,8 @@ Depth determines format:
 - Medium depth -> `post`
 - High depth -> `carousel_post`
 
+Apply the **mandatory rules** below before considering `post` or `carousel_post`.
+
 ## Scoring Context
 
 Use this scoring context as editorial guidance:
@@ -34,13 +36,22 @@ Use this scoring context as editorial guidance:
 {{SCORING_CONTEXT}}
 ```
 
-The scores come from the first editorial pass. Use them to decide how much publishing weight the item deserves:
+The scores come from the first editorial pass. Treat numeric fields as hard signals, not hints.
 
-- High `actionability`, `practical_usefulness`, and `share_save_potential` usually mean `post` or `carousel_post`.
-- Low `actionability` but strong `local_relevance`, `trustworthiness`, or `selection_gate_reasons` such as `interesting_local_fyi_story` usually means `story`.
-- If the item passed mainly because of `outdoor_lifestyle_or_local_experience_relevance`, prefer `story` unless there are concrete steps, dates, costs, rules, or planning details worth saving.
-- Avoid `carousel_post` unless the article clearly contains multiple practical details and the scoring context shows strong practical usefulness, actionability, or share/save potential.
-- Do not upgrade a quick FYI item to `post` just because the article has enough text.
+### Mandatory rules (apply in order)
+
+1. **`story` is required** when `actionability` is **1 or 2**, unless the article lists **three or more** concrete saveable details (specific dates, costs, deadlines, phone numbers, application steps, or eligibility rules). A single date or one fact is not enough to escape `story`.
+2. **`story` is required** when `selection_gate_reasons` includes `interesting_local_fyi_story` or `outdoor_lifestyle_or_local_experience_relevance` and `actionability` is **3 or lower**, unless the article is a multi-step guide or policy explainer people must save.
+3. **`carousel_post` is allowed only** when `actionability` is **4 or 5** **and** `practical_usefulness` is **4 or 5** **and** the article has **at least three** distinct facts or steps worth separate slides. Otherwise use `post` or `story`.
+4. **Do not choose `carousel_post`** for a single announcement, one event, one store opening, one price change, or one quote — use `post` or `story`.
+5. **Do not choose `post`** for pure FYI, vibe, or “did you know” items with no clear next step — use `story`.
+6. When unsure between `story` and `post`, prefer **`story`** if the item will feel stale in 48 hours or is mainly for awareness, not planning.
+
+### General guidance
+
+- High `actionability`, `practical_usefulness`, and `share_save_potential` usually mean `post` or `carousel_post` — but only if the mandatory rules above allow it.
+- Do not upgrade a quick FYI item to `post` or `carousel_post` just because the RSS text is long.
+- A balanced RoozVan feed needs **Stories** for timely/light items; defaulting everything to `post` or `carousel_post` is wrong.
 
 ## Use `story`
 
@@ -49,15 +60,17 @@ Choose `story` when the content is quick, temporary, conversational, or mainly u
 Good story topics:
 
 - urgent alerts
-- same-day events
+- same-day or this-weekend events (one time, one place — no multi-item guide)
 - traffic or transit delays
 - weather warnings
 - short reminders
 - quick FYI items
+- lifestyle / local colour / “interesting” news with no checklist
 - polls or engagement prompts
 - reposting another post
+- oil/gas price moves, single-stat headlines, or analyst quotes without a how-to
 
-Avoid `story` when the audience needs explanation, context, or a saveable reference.
+Avoid `story` only when the audience clearly needs a **saveable** reference (multi-fact guide, immigration steps, tax/benefit rules, event lists with many options).
 
 ## Use `post`
 
@@ -117,3 +130,7 @@ Prefer `story` when:
 - the information will expire soon
 - the topic is light, conversational, or best used for engagement
 - the scoring context shows low actionability but an interesting FYI or lifestyle/local-experience reason
+- `actionability` ≤ 2 (mandatory unless the three-or-more saveable-details exception applies)
+- `category` is `transit`, `weather`, or lifestyle/local colour without a step-by-step guide
+
+**Sanity check before you answer:** If you picked `post` or `carousel_post` but `actionability` ≤ 2, re-read the mandatory rules and switch to `story` unless the exception clearly applies.

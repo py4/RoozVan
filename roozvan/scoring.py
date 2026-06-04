@@ -6,6 +6,8 @@ import concurrent.futures
 import json
 import re
 import sys
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 from openrouter_client import OpenRouterClient, OpenRouterError
@@ -98,6 +100,14 @@ LIFESTYLE_FYI_KEYWORDS = (
     "festival",
     "weekend",
 )
+# Extra overall_score points by article age (RSS pubDate). Applied after editorial_adjustment.
+RECENCY_BOOST_TIERS_HOURS = (
+    (12, 4.0),
+    (24, 3.0),
+    (48, 2.0),
+    (72, 1.0),
+)
+
 DIRECT_IMPACT_KEYWORDS = (
     "surcharge",
     "fee",
@@ -221,7 +231,13 @@ def clamp_score(value: Any, field_name: str) -> int:
     return max(0, min(5, number))
 
 
-def normalize_evaluation(evaluation: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> dict[str, Any]:
+def normalize_evaluation(
+    evaluation: dict[str, Any],
+    item: NewsItem | dict[str, Any] | None = None,
+    *,
+    recency_boost_enabled: bool = True,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     normalized = dict(evaluation)
 
     for field in REQUIRED_NUMERIC_FIELDS:
@@ -237,10 +253,77 @@ def normalize_evaluation(evaluation: dict[str, Any], item: NewsItem | dict[str, 
     adjustment, adjustment_reasons = editorial_adjustment(normalized, item)
     normalized["editorial_adjustment"] = adjustment
     normalized["editorial_adjustment_reasons"] = adjustment_reasons
-    normalized["overall_score"] = round(normalized["base_score"] + adjustment, 2)
+
+    published_at = item_published_at(item)
+    age_hours = item_age_hours(item, now=now)
+    recency_boost, recency_reason = recency_score_adjustment(
+        item,
+        enabled=recency_boost_enabled,
+        now=now,
+    )
+    normalized["published_at"] = published_at.isoformat() if published_at else None
+    normalized["age_hours"] = round(age_hours, 2) if age_hours is not None else None
+    normalized["recency_boost"] = recency_boost
+    if recency_reason:
+        normalized["recency_boost_reason"] = recency_reason
+
+    normalized["overall_score"] = round(normalized["base_score"] + adjustment + recency_boost, 2)
     normalized["selection_gate_passed"] = passes_selection_gate(normalized, item)
     normalized["selection_gate_reasons"] = selection_gate_reasons(normalized, item)
     return normalized
+
+
+def item_published_at(item: NewsItem | dict[str, Any] | None) -> datetime | None:
+    if item is None:
+        return None
+    raw_date = item.date if isinstance(item, NewsItem) else item.get("date")
+    if not raw_date:
+        return None
+    try:
+        published = parsedate_to_datetime(str(raw_date).strip())
+    except (TypeError, ValueError):
+        return None
+    if published.tzinfo is None:
+        published = published.replace(tzinfo=timezone.utc)
+    return published.astimezone(timezone.utc)
+
+
+def item_age_hours(item: NewsItem | dict[str, Any] | None, *, now: datetime | None = None) -> float | None:
+    published_at = item_published_at(item)
+    if published_at is None:
+        return None
+    reference = now or datetime.now(timezone.utc)
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=timezone.utc)
+    age_seconds = (reference.astimezone(timezone.utc) - published_at).total_seconds()
+    return max(0.0, age_seconds / 3600)
+
+
+def recency_score_adjustment(
+    item: NewsItem | dict[str, Any] | None,
+    *,
+    enabled: bool = True,
+    now: datetime | None = None,
+) -> tuple[float, str | None]:
+    if not enabled:
+        return 0.0, None
+    age_hours = item_age_hours(item, now=now)
+    if age_hours is None:
+        return 0.0, None
+    for max_hours, boost in RECENCY_BOOST_TIERS_HOURS:
+        if age_hours <= max_hours:
+            return boost, f"published_within_{max_hours}h"
+    return 0.0, None
+
+
+def item_published_timestamp(item: ScoredItem | NewsItem | dict[str, Any]) -> float:
+    if isinstance(item, ScoredItem):
+        published_at = item_published_at(item.item)
+    else:
+        published_at = item_published_at(item)
+    if published_at is None:
+        return 0.0
+    return published_at.timestamp()
 
 
 def infer_risk(score: dict[str, Any]) -> int:
@@ -438,6 +521,7 @@ def score_item(
     item: NewsItem | dict[str, Any],
     *,
     max_tokens: int,
+    recency_boost_enabled: bool = True,
 ) -> dict[str, Any]:
     prompt = build_prompt(prompt_template, item)
     try:
@@ -456,7 +540,11 @@ def score_item(
         if not is_unsupported_structured_output_error(exc):
             raise
         raw_response = client.ask(prompt, temperature=0, max_tokens=max_tokens)
-    return normalize_evaluation(parse_json_object(raw_response), item)
+    return normalize_evaluation(
+        parse_json_object(raw_response),
+        item,
+        recency_boost_enabled=recency_boost_enabled,
+    )
 
 
 def is_unsupported_structured_output_error(exc: OpenRouterError) -> bool:
@@ -470,6 +558,7 @@ def score_news_items(
     *,
     max_tokens: int,
     workers: int,
+    recency_boost_enabled: bool = True,
 ) -> list[ScoredItem]:
     results = []
     if not items:
@@ -478,7 +567,13 @@ def score_news_items(
     worker_count = max(1, min(workers, len(items)))
 
     def score_indexed_item(index: int, item: NewsItem) -> ScoredItem:
-        evaluation = score_item(client, prompt_template, item, max_tokens=max_tokens)
+        evaluation = score_item(
+            client,
+            prompt_template,
+            item,
+            max_tokens=max_tokens,
+            recency_boost_enabled=recency_boost_enabled,
+        )
         return ScoredItem(
             source_index=index,
             item=item,
@@ -511,9 +606,20 @@ def score_items(
     *,
     max_tokens: int,
     workers: int,
+    recency_boost_enabled: bool = True,
 ) -> list[dict[str, Any]]:
     news_items = [NewsItem.from_dict(item) for item in items]
-    return [item.to_dict() for item in score_news_items(news_items, prompt_template, client, max_tokens=max_tokens, workers=workers)]
+    return [
+        item.to_dict()
+        for item in score_news_items(
+            news_items,
+            prompt_template,
+            client,
+            max_tokens=max_tokens,
+            workers=workers,
+            recency_boost_enabled=recency_boost_enabled,
+        )
+    ]
 
 
 def score_items_sequential(
@@ -527,4 +633,11 @@ def score_items_sequential(
 
 
 def rank_scored_items(items: list[ScoredItem]) -> list[ScoredItem]:
-    return sorted(items, key=lambda item: (-item.overall_score, item.source_index))
+    return sorted(
+        items,
+        key=lambda item: (
+            -item.overall_score,
+            -item_published_timestamp(item),
+            item.source_index,
+        ),
+    )

@@ -22,11 +22,14 @@ Rules:
 - Each slide must be understandable on its own, but avoid repeating the same sentence across slides.
 - Keep each slide short: `headline_fa` under 8 Persian words and `body_fa` under 24 Persian words.
 - Use standard Persian numerals where appropriate.
+- For global brand names, keep official English spelling (Uber, Lyft, RiLo, BC Ferries) or the accepted short Persian form `لیفت` for Lyft. Never use awkward phonetic transliterations such as `لایفت`, `اوبر` for Uber (prefer `Uber`), or `سورج پرایسینگ` for surge pricing.
+- For Metro Vancouver streets, neighbourhoods, stations, parks, and venues, keep the official English name exactly as published. Do not phonetic-transliterate them into Persian.
 - Avoid fragile symbol-style emoji such as ℹ️, ©️, ®️, ™️, ↗️.
 - The caption may briefly restate the carousel topic, but it must add context beyond the slide text.
 - Do not use downward CTAs such as "بیشتر بخونید 👇", "ادامه پایین", or any down-arrow implication. In Instagram carousel, the detail is inside the slides, not below the caption.
 - If a CTA is useful, use carousel-specific language such as "اسلایدها رو ورق بزنید", "برای جزئیات ورق بزنید", "ذخیره کنید", or "برای دوست‌تان بفرستید".
-- Put 5-8 relevant hashtags at the end of `caption_fa`.
+- For `caption_fa`, use 3-5 short bullet points separated by blank lines (`\\n\\n`). Start bullets with 📌, 🗓️, 📍, ✅, or 🔎 when useful.
+- Put 5-8 relevant hashtags at the end of `caption_fa` on their own line after a blank line.
 - Use broad, reusable hashtags for city, province, audience, and category. Avoid overly specific one-off hashtags that describe only this exact story.
 
 Return JSON only:

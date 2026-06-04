@@ -26,13 +26,17 @@ class InstagramPublishResult:
     media_id: str
     image_url: str | None = None
     temporary_object_key: str | None = None
+    image_urls: tuple[str, ...] = ()
+    temporary_object_keys: tuple[str, ...] = ()
 
-    def to_dict(self) -> dict[str, str | None]:
+    def to_dict(self) -> dict[str, str | list[str] | None]:
         return {
             "creation_id": self.creation_id,
             "media_id": self.media_id,
             "image_url": self.image_url,
             "temporary_object_key": self.temporary_object_key,
+            "image_urls": list(self.image_urls),
+            "temporary_object_keys": list(self.temporary_object_keys),
         }
 
 
@@ -123,6 +127,66 @@ class InstagramPublisher:
             if delete_after_publish:
                 storage.delete_object(uploaded.key)
 
+    def publish_carousel_post(
+        self,
+        *,
+        caption: str,
+        image_urls: list[str],
+    ) -> InstagramPublishResult:
+        if len(image_urls) < 2:
+            raise InstagramPublishError("Instagram carousels require at least 2 images.")
+        if len(image_urls) > 10:
+            raise InstagramPublishError("Instagram carousels support at most 10 images.")
+
+        child_ids: list[str] = []
+        for image_url in image_urls:
+            child_ids.append(self.create_carousel_item_container(image_url))
+        creation_id = self.create_carousel_container(child_ids, caption)
+        media_id = self.publish_container(creation_id)
+        return InstagramPublishResult(
+            creation_id=creation_id,
+            media_id=media_id,
+            image_url=image_urls[0],
+            image_urls=tuple(image_urls),
+        )
+
+    def publish_local_carousel_with_r2(
+        self,
+        *,
+        image_paths: list[str | Path],
+        caption: str,
+        key_prefix: str | None = None,
+        delete_after_publish: bool = True,
+        r2_storage: R2Storage | None = None,
+    ) -> InstagramPublishResult:
+        if len(image_paths) < 2:
+            raise InstagramPublishError("Instagram carousels require at least 2 local images.")
+
+        storage = r2_storage or R2Storage(timeout=self.timeout)
+        uploaded_keys: list[str] = []
+        image_urls: list[str] = []
+        try:
+            for index, image_path in enumerate(image_paths, start=1):
+                object_key = None
+                if key_prefix:
+                    suffix = Path(image_path).suffix or ".jpg"
+                    object_key = f"{key_prefix.rstrip('/')}/slide-{index:02d}{suffix}"
+                uploaded = storage.upload_file(image_path, key=object_key)
+                uploaded_keys.append(uploaded.key)
+                image_urls.append(uploaded.public_url)
+            result = self.publish_carousel_post(caption=caption, image_urls=image_urls)
+            return InstagramPublishResult(
+                creation_id=result.creation_id,
+                media_id=result.media_id,
+                image_url=image_urls[0],
+                image_urls=tuple(image_urls),
+                temporary_object_keys=tuple(uploaded_keys),
+            )
+        finally:
+            if delete_after_publish:
+                for key in uploaded_keys:
+                    storage.delete_object(key)
+
     def publish_local_image_story_with_r2(
         self,
         *,
@@ -158,6 +222,35 @@ class InstagramPublisher:
         creation_id = response.get("id")
         if not isinstance(creation_id, str) or not creation_id:
             raise InstagramPublishError(f"Instagram did not return a creation id: {response}")
+        return creation_id
+
+    def create_carousel_item_container(self, image_url: str) -> str:
+        response = self._post(
+            f"{self.instagram_user_id}/media",
+            {
+                "image_url": image_url,
+                "is_carousel_item": "true",
+                "access_token": self.access_token,
+            },
+        )
+        creation_id = response.get("id")
+        if not isinstance(creation_id, str) or not creation_id:
+            raise InstagramPublishError(f"Instagram did not return a carousel item id: {response}")
+        return creation_id
+
+    def create_carousel_container(self, child_creation_ids: list[str], caption: str) -> str:
+        response = self._post(
+            f"{self.instagram_user_id}/media",
+            {
+                "media_type": "CAROUSEL",
+                "children": ",".join(child_creation_ids),
+                "caption": caption,
+                "access_token": self.access_token,
+            },
+        )
+        creation_id = response.get("id")
+        if not isinstance(creation_id, str) or not creation_id:
+            raise InstagramPublishError(f"Instagram did not return a carousel creation id: {response}")
         return creation_id
 
     def create_story_container(self, image_url: str) -> str:
@@ -317,6 +410,53 @@ def publish_story_image_to_instagram(
         timeout=timeout,
     )
     return publisher.publish_image_story(image_url=image_url, image_path=image_path)
+
+
+def publish_carousel_to_instagram(
+    *,
+    caption: str,
+    image_urls: list[str],
+    access_token: str | None = None,
+    instagram_user_id: str | None = None,
+    graph_api_version: str = "v24.0",
+    graph_api_base_url: str = "https://graph.instagram.com",
+    timeout: int = 60,
+) -> InstagramPublishResult:
+    publisher = InstagramPublisher(
+        access_token=access_token,
+        instagram_user_id=instagram_user_id,
+        graph_api_version=graph_api_version,
+        graph_api_base_url=graph_api_base_url,
+        timeout=timeout,
+    )
+    return publisher.publish_carousel_post(caption=caption, image_urls=image_urls)
+
+
+def publish_local_carousel_to_instagram_with_r2(
+    *,
+    image_paths: list[str | Path],
+    caption: str,
+    key_prefix: str | None = None,
+    delete_after_publish: bool = True,
+    access_token: str | None = None,
+    instagram_user_id: str | None = None,
+    graph_api_version: str = "v24.0",
+    graph_api_base_url: str = "https://graph.instagram.com",
+    timeout: int = 60,
+) -> InstagramPublishResult:
+    publisher = InstagramPublisher(
+        access_token=access_token,
+        instagram_user_id=instagram_user_id,
+        graph_api_version=graph_api_version,
+        graph_api_base_url=graph_api_base_url,
+        timeout=timeout,
+    )
+    return publisher.publish_local_carousel_with_r2(
+        image_paths=image_paths,
+        caption=caption,
+        key_prefix=key_prefix,
+        delete_after_publish=delete_after_publish,
+    )
 
 
 def publish_local_story_image_to_instagram_with_r2(

@@ -12,7 +12,11 @@ import time
 from pathlib import Path
 
 from roozvan.pipeline import PipelineConfig, build_default_pipeline
-from roozvan.story_images import DEFAULT_GEMINI_STORY_IMAGE_MODEL, DEFAULT_STORY_IMAGE_MODEL
+from roozvan.story_images import (
+    DEFAULT_GEMINI_STORY_IMAGE_MODEL,
+    DEFAULT_OPENROUTER_IMAGE_MAX_TOKENS,
+    DEFAULT_STORY_IMAGE_MODEL,
+)
 
 
 def main() -> int:
@@ -59,7 +63,7 @@ def main() -> int:
         "--story-image-provider",
         choices=("openrouter", "gemini"),
         default="gemini",
-        help="Provider for story image generation.",
+        help="Provider for story/post/carousel image generation (default: direct Gemini API).",
     )
     parser.add_argument(
         "--gemini-story-image-model",
@@ -100,17 +104,37 @@ def main() -> int:
         help="Maximum output tokens for each post image generation response.",
     )
     parser.add_argument("--workers", type=int, default=16, help="Number of parallel OpenRouter scoring requests.")
-    parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
+    parser.add_argument("--selection-limit", type=int, default=20, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
+    parser.add_argument(
+        "--no-recency-boost",
+        action="store_true",
+        help="Disable extra ranking points for recently published RSS items.",
+    )
+    parser.add_argument(
+        "--generate-images",
+        action="store_true",
+        help="Generate post/carousel/story images during the pipeline (expensive; default is text-only for HTML review).",
+    )
+    parser.add_argument(
+        "--generate-story-images",
+        action="store_true",
+        help="Generate story images (implies image generation for stories; use with --generate-images or alone).",
+    )
+    parser.add_argument(
+        "--skip-post-text",
+        action="store_true",
+        help="Skip post/carousel caption and slide text generation.",
+    )
     parser.add_argument(
         "--skip-story-images",
         action="store_true",
-        help="Skip story image generation after article ranking and selection.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--skip-post-content",
         action="store_true",
-        help="Skip post image and caption generation after format selection.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--story-image-output-dir",
@@ -134,8 +158,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--dump-dir",
-        default=None,
-        help="Optional directory for full pipeline debug dumps.",
+        default="runs/live-debug",
+        help="Directory for full pipeline debug dumps.",
     )
     parser.add_argument("--json", action="store_true", help="Print selected candidates as JSON.")
     args = parser.parse_args()
@@ -164,8 +188,10 @@ def main() -> int:
         workers=args.workers,
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,
-        generate_story_images=not args.skip_story_images,
-        generate_post_content=not args.skip_post_content,
+        recency_boost_enabled=not args.no_recency_boost,
+        generate_story_images=args.generate_story_images or args.generate_images,
+        generate_post_content=not args.skip_post_text and not args.skip_post_content,
+        generate_post_images=args.generate_images,
         story_image_output_dir=Path(args.story_image_output_dir),
         post_image_output_dir=Path(args.post_image_output_dir),
         logo_path=Path(args.logo_path),
@@ -174,8 +200,7 @@ def main() -> int:
     started_at = time.perf_counter()
     result = build_default_pipeline().run(config)
     total_elapsed = time.perf_counter() - started_at
-    if args.dump_dir:
-        write_debug_dump(Path(args.dump_dir), result, config, total_elapsed)
+    write_debug_dump(Path(args.dump_dir), result, config, total_elapsed)
 
     if args.json:
         print(json.dumps(result.selected_as_dicts(), ensure_ascii=False, indent=2))
@@ -249,8 +274,10 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "workers": config.workers,
             "selection_limit": config.selection_limit,
             "minimum_score": config.minimum_score,
+            "recency_boost_enabled": config.recency_boost_enabled,
             "generate_story_images": config.generate_story_images,
             "generate_post_content": config.generate_post_content,
+            "generate_post_images": config.generate_post_images,
             "story_image_output_dir": str(config.story_image_output_dir),
             "post_image_output_dir": str(config.post_image_output_dir),
             "logo_path": str(config.logo_path),
@@ -259,6 +286,12 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
     )
     write_html_report(dump_dir / "index.html", result.selected_items)
     print(f"Debug dump written to {dump_dir}", file=sys.stderr)
+    if not config.generate_post_images and not config.generate_story_images:
+        print(
+            "Images were not generated. Review index.html, then run:\n"
+            f"  python3 generate_selected_images.py --dump-dir {dump_dir}",
+            file=sys.stderr,
+        )
 
 
 def write_json(path: Path, data) -> None:
@@ -438,6 +471,28 @@ def write_html_report(path: Path, selected_items) -> None:
       padding: 24px;
       text-align: center;
     }}
+    .slide-text-list {{
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+    }}
+    .slide-text {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      line-height: 1.7;
+    }}
+    .slide-body {{
+      color: #333;
+      margin-top: 4px;
+    }}
+    .slide-badge {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }}
     .empty {{
       background: var(--panel);
       border: 1px solid var(--line);
@@ -483,10 +538,12 @@ def render_instagram_row(dump_dir: Path, item) -> str:
     if is_story:
         preview = f'<div class="phone story">{media}</div>'
     elif is_carousel:
+        slide_text = render_carousel_slide_text(item.evaluation.get("carousel_post"))
         preview = f"""
         <div class="carousel">
-          <div class="carousel-count">{len(image_paths or [])} slides · scroll horizontally</div>
+          <div class="carousel-count">{carousel_count_label(image_paths, item.evaluation.get("carousel_post"))}</div>
           <div class="carousel-track">{media}</div>
+          {slide_text}
           <div class="phone post">
             <div class="ig-header"><div class="avatar"></div><div>roozvan.ca</div></div>
             <div class="ig-actions">♡ ◌ ↗</div>
@@ -521,14 +578,39 @@ def render_instagram_row(dump_dir: Path, item) -> str:
 
 def render_media(dump_dir: Path, image_path: str | None) -> str:
     if not image_path:
-        return '<div class="missing">No image generated</div>'
+        return '<div class="missing">Image not generated yet</div>'
     relative_path = html.escape(relative_asset_path(dump_dir, Path(image_path)))
     return f'<img class="media" src="{relative_path}" alt="">'
 
 
+def carousel_count_label(image_paths: list[str] | None, carousel_post: dict | None) -> str:
+    if image_paths:
+        return f"{len(image_paths)} slides · scroll horizontally"
+    slides = (carousel_post or {}).get("slides") or []
+    if slides:
+        return f"{len(slides)} slides · text preview (images not generated yet)"
+    return "carousel · images not generated yet"
+
+
+def render_carousel_slide_text(carousel_post: dict | None) -> str:
+    slides = (carousel_post or {}).get("slides") or []
+    if not slides:
+        return ""
+    blocks = []
+    for index, slide in enumerate(slides, start=1):
+        headline = html.escape(str(slide.get("headline_fa") or ""))
+        body = html.escape(str(slide.get("body_fa") or ""))
+        category = html.escape(str(slide.get("category_label_fa") or ""))
+        badge = f'<span class="slide-badge">{category}</span> ' if category else ""
+        blocks.append(
+            f'<div class="slide-text"><strong>Slide {index}</strong> {badge}<div>{headline}</div><div class="slide-body">{body}</div></div>'
+        )
+    return f'<div class="slide-text-list">{"".join(blocks)}</div>'
+
+
 def render_carousel_media(dump_dir: Path, image_paths: list[str] | None) -> str:
     if not image_paths:
-        return '<div class="phone post"><div class="missing">No carousel slides generated</div></div>'
+        return '<div class="phone post"><div class="missing">Images not generated yet</div></div>'
     slides = []
     for index, image_path in enumerate(image_paths, start=1):
         slides.append(

@@ -13,7 +13,10 @@ from roozvan.articles import enrich_items_with_articles
 from roozvan.feeds import collect_news_items
 from roozvan.format_selection import select_formats_for_scored_items
 from roozvan.models import NewsItem, PostDraft, ScoredItem
-from roozvan.post_content import generate_post_content_for_scored_items
+from roozvan.post_content import (
+    generate_post_content_for_scored_items,
+    generate_post_images_for_scored_items,
+)
 from roozvan.scoring import rank_scored_items, score_news_items
 from roozvan.logo_overlay import DEFAULT_LOGO_PATH
 from roozvan.story_images import (
@@ -42,14 +45,16 @@ class PipelineConfig:
     max_items: int | None = None
     max_tokens: int = 600
     format_selection_max_tokens: int = 80
-    story_image_max_tokens: int | None = 12000
+    story_image_max_tokens: int | None = 1400
     post_caption_max_tokens: int = 900
-    post_image_max_tokens: int | None = 12000
+    post_image_max_tokens: int | None = 1400
     workers: int = 16
-    selection_limit: int = 5
+    selection_limit: int = 20
     minimum_score: float = 12
-    generate_story_images: bool = True
+    recency_boost_enabled: bool = True
+    generate_story_images: bool = False
     generate_post_content: bool = True
+    generate_post_images: bool = False
     story_image_output_dir: Path = Path("generated_story_images")
     post_image_output_dir: Path = Path("generated_post_images")
     logo_path: Path = DEFAULT_LOGO_PATH
@@ -113,6 +118,7 @@ class EditorialScoringStage:
             client,
             max_tokens=config.max_tokens,
             workers=config.workers,
+            recency_boost_enabled=config.recency_boost_enabled,
         )
         return result
 
@@ -218,6 +224,7 @@ class PostContentGenerationStage:
             workers=config.workers,
             apply_logo_overlay_enabled=config.apply_logo_overlay,
             logo_path=config.logo_path,
+            generate_images=config.generate_post_images,
         )
         return result
 
@@ -242,8 +249,11 @@ class VisualContentGenerationStage:
         updated_items: list[ScoredItem] = list(result.selected_items)
 
         def generate_post_items() -> list[tuple[int, ScoredItem]]:
-            if not config.generate_post_content or not post_indexed_items:
+            if not post_indexed_items:
                 return []
+            if not config.generate_post_content and not config.generate_post_images:
+                return []
+
             image_prompt_template = config.post_image_prompt_path.read_text(encoding="utf-8")
             caption_prompt_template = config.post_caption_prompt_path.read_text(encoding="utf-8")
             carousel_content_prompt_template = config.carousel_content_prompt_path.read_text(encoding="utf-8")
@@ -259,24 +269,43 @@ class VisualContentGenerationStage:
                 app_name="RoozVan",
             )
             caption_client = OpenRouterClient(model=config.model, timeout=config.timeout, app_name="RoozVan")
-            generated = generate_post_content_for_scored_items(
-                [item for _, item in post_indexed_items],
-                image_prompt_template=image_prompt_template,
-                caption_prompt_template=caption_prompt_template,
-                carousel_content_prompt_template=carousel_content_prompt_template,
-                carousel_image_prompt_template=carousel_image_prompt_template,
-                caption_client=caption_client,
-                image_client=image_client,
-                output_dir=config.post_image_output_dir,
-                image_model=image_model,
-                image_provider=config.story_image_provider,
-                caption_max_tokens=config.post_caption_max_tokens,
-                image_max_tokens=config.post_image_max_tokens,
-                workers=config.workers,
-                apply_logo_overlay_enabled=config.apply_logo_overlay,
-                logo_path=config.logo_path,
-            )
-            return [(index, item) for (index, _), item in zip(post_indexed_items, generated)]
+            post_items = [item for _, item in post_indexed_items]
+
+            if config.generate_post_content:
+                post_items = generate_post_content_for_scored_items(
+                    post_items,
+                    image_prompt_template=image_prompt_template,
+                    caption_prompt_template=caption_prompt_template,
+                    carousel_content_prompt_template=carousel_content_prompt_template,
+                    carousel_image_prompt_template=carousel_image_prompt_template,
+                    caption_client=caption_client,
+                    image_client=image_client,
+                    output_dir=config.post_image_output_dir,
+                    image_model=image_model,
+                    image_provider=config.story_image_provider,
+                    caption_max_tokens=config.post_caption_max_tokens,
+                    image_max_tokens=config.post_image_max_tokens,
+                    workers=config.workers,
+                    apply_logo_overlay_enabled=config.apply_logo_overlay,
+                    logo_path=config.logo_path,
+                    generate_images=config.generate_post_images,
+                )
+            elif config.generate_post_images:
+                post_items = generate_post_images_for_scored_items(
+                    post_items,
+                    image_prompt_template=image_prompt_template,
+                    carousel_image_prompt_template=carousel_image_prompt_template,
+                    image_client=image_client,
+                    output_dir=config.post_image_output_dir,
+                    image_model=image_model,
+                    image_provider=config.story_image_provider,
+                    image_max_tokens=config.post_image_max_tokens,
+                    workers=config.workers,
+                    apply_logo_overlay_enabled=config.apply_logo_overlay,
+                    logo_path=config.logo_path,
+                )
+
+            return [(index, item) for (index, _), item in zip(post_indexed_items, post_items)]
 
         def generate_story_items() -> list[tuple[int, ScoredItem]]:
             if not config.generate_story_images or not story_indexed_items:

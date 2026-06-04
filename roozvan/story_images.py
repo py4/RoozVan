@@ -19,8 +19,42 @@ from roozvan.logo_overlay import DEFAULT_LOGO_PATH, apply_logo_overlay
 from roozvan.models import NewsItem, ScoredItem
 
 
-DEFAULT_STORY_IMAGE_MODEL = "openai/gpt-5.4-image-2"
+DEFAULT_STORY_IMAGE_MODEL = "google/gemini-3-pro-image-preview"
+# Latest Gemini Pro image preview on the Generative Language API (Nano Banana Pro).
 DEFAULT_GEMINI_STORY_IMAGE_MODEL = "gemini-3-pro-image-preview"
+DEFAULT_OPENROUTER_IMAGE_SIZE = "1K"
+OPENROUTER_IMAGE_OUTPUT_MODALITIES = ["image"]
+# Cap completion tokens so providers stay on the 1K image tier and skip long text/refinement.
+DEFAULT_OPENROUTER_IMAGE_MAX_TOKENS = 1400
+# Gemini 3 Pro Image may spend many tokens on reasoning before image output.
+GEMINI_PRO_IMAGE_MAX_TOKENS = 4096
+IMAGE_ONLY_SYSTEM_PROMPT = (
+    "Return only the generated image. Do not output any text, commentary, reasoning, or explanations."
+)
+
+
+def openrouter_image_max_tokens(model: str, max_tokens: int | None = None) -> int | None:
+    if max_tokens is not None:
+        return max_tokens
+    if "gemini-3-pro-image" in model:
+        return GEMINI_PRO_IMAGE_MAX_TOKENS
+    return DEFAULT_OPENROUTER_IMAGE_MAX_TOKENS
+GROK_IMAGINE_SUPPORTED_ASPECT_RATIOS = {
+    "1:1",
+    "3:4",
+    "4:3",
+    "9:16",
+    "16:9",
+    "2:3",
+    "3:2",
+    "9:19.5",
+    "19.5:9",
+    "9:20",
+    "20:9",
+    "1:2",
+    "2:1",
+    "auto",
+}
 
 
 def build_story_image_prompt(prompt_template: str, item: NewsItem) -> str:
@@ -42,7 +76,7 @@ def generate_story_images_for_scored_items(
     *,
     output_dir: Path,
     model: str = DEFAULT_STORY_IMAGE_MODEL,
-    provider: str = "openrouter",
+    provider: str = "gemini",
     max_tokens: int | None = 12000,
     workers: int = 4,
     apply_logo_overlay_enabled: bool = True,
@@ -106,7 +140,7 @@ def generate_story_image(
     *,
     output_dir: Path,
     model: str = DEFAULT_STORY_IMAGE_MODEL,
-    provider: str = "openrouter",
+    provider: str = "gemini",
     max_tokens: int | None = 12000,
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
@@ -125,18 +159,11 @@ def generate_story_image(
     if provider != "openrouter":
         raise ValueError(f"Unsupported story image provider: {provider}")
 
-    body = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "modalities": ["image", "text"],
-        "image_config": {
-            "aspect_ratio": "9:16",
-            "image_size": "1K",
-        },
-        "stream": False,
-    }
-    if max_tokens is not None:
-        body["max_tokens"] = max_tokens
+    body = build_openrouter_image_request_body(
+        model=model,
+        prompt=prompt,
+        aspect_ratio="9:16",
+    )
     response = post_openrouter_image_request(client, body)
     message = response.get("choices", [{}])[0].get("message", {})
     images = message.get("images") or []
@@ -234,6 +261,40 @@ def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[
     return post_gemini_image_request_with_config(prompt, model=model, timeout=timeout, aspect_ratio="9:16")
 
 
+def openrouter_image_aspect_ratio(model: str, requested_aspect_ratio: str) -> str:
+    if model.startswith("x-ai/grok-imagine") and requested_aspect_ratio not in GROK_IMAGINE_SUPPORTED_ASPECT_RATIOS:
+        return "auto"
+    return requested_aspect_ratio
+
+
+def build_openrouter_image_request_body(
+    *,
+    model: str,
+    prompt: str,
+    aspect_ratio: str,
+    max_tokens: int | None = None,
+) -> dict[str, Any]:
+    max_tokens = openrouter_image_max_tokens(model, max_tokens)
+    """Build an OpenRouter chat/completions body for image-only generation at 1K."""
+    body: dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": IMAGE_ONLY_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "modalities": OPENROUTER_IMAGE_OUTPUT_MODALITIES,
+        "image_config": {
+            "aspect_ratio": openrouter_image_aspect_ratio(model, aspect_ratio),
+            "image_size": DEFAULT_OPENROUTER_IMAGE_SIZE,
+        },
+        "provider": {"require_parameters": True},
+        "stream": False,
+    }
+    if max_tokens is not None:
+        body["max_tokens"] = max_tokens
+    return body
+
+
 def post_gemini_image_request_with_config(
     prompt: str,
     *,
@@ -256,7 +317,7 @@ def post_gemini_image_request_with_config(
             }
         ],
         "generationConfig": {
-            "responseModalities": ["IMAGE", "TEXT"],
+            "responseModalities": ["IMAGE"],
             "imageConfig": {
                 "aspectRatio": aspect_ratio,
                 "imageSize": image_size,

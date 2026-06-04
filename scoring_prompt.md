@@ -52,6 +52,7 @@ Also assign:
 
 Selection rule:
 Prefer high usefulness, actionability, urgency, and share/save potential.
+The application also adds a recency boost from the RSS publish date (newer items get up to +4 on overall_score: +4 within 12h, +3 within 24h, +2 within 48h, +1 within 72h).
 Also allow trustworthy, locally relevant FYI items that are interesting enough for a Story, especially if they explain Vancouver/BC life or help people plan leisure, travel, outdoor activities, food, or community experiences.
 Avoid outrage-only crime stories, generic politics, celebrity news, sports results, sports roster updates, and weakly sourced claims unless there is clear community, event, transit, ticket, or planning value for Vancouver residents.
 Do not recommend posting if the item is not useful to Persian-speaking Vancouver residents.

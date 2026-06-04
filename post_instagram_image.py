@@ -9,6 +9,7 @@ from pathlib import Path
 
 from roozvan.instagram import (
     publish_image_to_instagram,
+    publish_local_carousel_to_instagram_with_r2,
     publish_local_image_to_instagram_with_r2,
     publish_local_story_image_to_instagram_with_r2,
     publish_story_image_to_instagram,
@@ -17,13 +18,23 @@ from roozvan.instagram import (
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Publish an image and caption to Instagram.")
-    image_group = parser.add_mutually_exclusive_group(required=True)
+    image_group = parser.add_mutually_exclusive_group()
     image_group.add_argument("--image-url", help="Publicly reachable image URL.")
     image_group.add_argument("--image-path", help="Local image path mapped by INSTAGRAM_PUBLIC_BASE_URL.")
     caption_group = parser.add_mutually_exclusive_group()
     caption_group.add_argument("--caption", help="Instagram caption text.")
     caption_group.add_argument("--caption-file", help="Path to a UTF-8 caption text file.")
     parser.add_argument("--story", action="store_true", help="Publish image as an Instagram Story instead of a feed post.")
+    parser.add_argument(
+        "--carousel",
+        action="store_true",
+        help="Publish multiple images as an Instagram carousel feed post (requires --image-paths).",
+    )
+    parser.add_argument(
+        "--image-paths",
+        nargs="+",
+        help="Local image paths for a carousel post, in order.",
+    )
     parser.add_argument("--public-base-url", help="Public URL prefix for --image-path.")
     parser.add_argument("--public-base-path", default=".", help="Local base path that maps to --public-base-url.")
     parser.add_argument(
@@ -43,8 +54,31 @@ def main() -> int:
     caption = args.caption
     if args.caption_file:
         caption = Path(args.caption_file).read_text(encoding="utf-8").strip()
-    if not args.story and caption is None:
+    if args.carousel and args.story:
+        parser.error("--carousel cannot be combined with --story")
+    if args.carousel and not args.image_paths:
+        parser.error("--carousel requires --image-paths")
+    if args.image_paths and not args.carousel:
+        parser.error("--image-paths requires --carousel")
+    if not args.story and not args.carousel and caption is None:
         parser.error("feed publishing requires --caption or --caption-file")
+    if args.carousel and caption is None:
+        parser.error("carousel publishing requires --caption or --caption-file")
+    if not args.carousel and not args.image_url and not args.image_path:
+        parser.error("requires --image-url or --image-path (or use --carousel with --image-paths)")
+
+    if args.carousel:
+        if not args.upload_r2:
+            parser.error("carousel publishing currently requires --upload-r2")
+        result = publish_local_carousel_to_instagram_with_r2(
+            image_paths=args.image_paths,
+            caption=caption or "",
+            key_prefix=args.r2_key,
+            delete_after_publish=not args.keep_r2_object,
+            timeout=args.timeout,
+        )
+        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        return 0
 
     if args.upload_r2:
         if not args.image_path:

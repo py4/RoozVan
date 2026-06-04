@@ -18,12 +18,13 @@ Text rules:
 - Do not add extra facts, dates, dollar amounts, eligibility details, or explanatory sentences beyond the provided headline/subline. Those belong in the caption.
 - Do not repeat long article phrasing.
 - Use standard Persian numerals where appropriate.
+- Avoid awkward Persian transliteration of English terms. If there is a common, natural Persian equivalent, use it; otherwise keep the original English phrase. For example, use "افزایش ناگهانی قیمت" or "surge pricing", never "سورج پرایسینگ".
 
 Layout:
 - Aspect ratio: 4:5.
 - Modern editorial news design with one dominant visual idea.
 - Bottom-left logo zone (bottom ~20%, left ~30%): no text or graphics. Use natural low-detail negative space from the scene itself, such as plain pavement, water, sky, wall, grass, shadow, or uncluttered foreground. Preserve the scene's normal color and lighting; do NOT brighten, whiten, blur, haze, vignette, wash out, or discolor this corner just to make room for the logo. The RoozVan logo is added automatically after generation.
-- Do not add RoozVan logo, brand name, handle, watermark, source name, QR code, or fake UI placeholder rectangles.
+- Do NOT render any page name, Instagram handle, @username, URL, or RoozVan / روز وَن / roozvan branding anywhere (including top-left). Do not add RoozVan logo, watermark, source name, QR code, or fake UI placeholder rectangles.
 - Avoid clutter, text boxes, multi-card layouts, tiny unreadable text, obvious faded patches, or local white glows.
 
 Visual direction:
