@@ -9,6 +9,7 @@ If the article includes a vivid concrete detail that explains why the news matte
 
 Render exactly four distinct text elements:
 1. Category Label (Upper-Right): Use a highly specific, short category tag. Never use generic labels like "خبر مهم".
+   The category text must sit on a solid background color (a small pill or badge) so it stays readable on any photo.
    Examples: قوانین شهری، قوانین مهاجرت، هشدار آب‌وهوا، حمل‌ونقل، مسکن، مالیات، امنیت محلی، خبر فرهنگی
 2. Headline/Main Takeaway: One short, high-impact sentence. 
 3. Context/Why It Matters: One short practical line explaining the local impact.
@@ -25,9 +26,10 @@ Render exactly four distinct text elements:
 - Background Integration: Text must be placed over clean, darker, or subtly masked areas of the image to ensure high contrast without needing background text boxes.
 
 ### NEGATIVE SPACE & BRANDING COMPLIANCE
-- Do NOT render any logos, page names, social media handles, or watermarks. Branding will be overlaid manually later.
-- Leave clean, natural negative space in the bottom-left corner for a logo overlay. 
-- ABSOLUTELY FORBIDDEN: Do not draw white rectangle placeholder boxes, artificial text frames, fake UI cards, icons inside circles, or divided multi-box news templates. The image must be a unified, single-background photographic visual with text layered cleanly over it.
+- Do NOT render any logos, page names, social media handles, or watermarks. The RoozVan logo is added automatically after generation.
+- Bottom-left logo zone (roughly bottom 20% × left 30%): keep this area empty of all text and icons. Use natural low-detail negative space from the scene itself, such as plain pavement, water, sky, wall, grass, shadow, or uncluttered foreground. Preserve the scene's normal color and lighting; do NOT brighten, whiten, blur, haze, vignette, wash out, or discolor this corner just to make room for the logo.
+- Place all story text in the upper and center-right areas only. Shorten copy if needed so nothing enters the bottom-left zone.
+- ABSOLUTELY FORBIDDEN: fake UI cards, artificial text frames, hard-edged white rectangle placeholders, obvious faded patches, local white glows, icons inside circles, or divided multi-box news templates. The only exception is the small colored background behind the category label.
 
 ### NEWS INPUT:
 Title: {{TITLE}}

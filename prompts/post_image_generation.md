@@ -12,7 +12,7 @@ Make a strong Instagram cover/card, not a full article. The image should communi
 Text rules:
 - Render Persian text natively inside the image.
 - Use a short, clear Persian headline and one short subline.
-- Include a short category label in the upper-right.
+- Include a short category label in the upper-right on a solid background color (small pill or badge) for readability.
 - Keep total Persian text under ۱۸ words.
 - Do not repeat long article phrasing.
 - Use standard Persian numerals where appropriate.
@@ -20,9 +20,9 @@ Text rules:
 Layout:
 - Aspect ratio: 4:5.
 - Modern editorial news design with one dominant visual idea.
-- Leave bottom-left negative space for a logo overlay.
-- Do not add RoozVan logo, brand name, handle, watermark, source name, QR code, fake UI, or white placeholder rectangle.
-- Avoid clutter, text boxes, multi-card layouts, and tiny unreadable text.
+- Bottom-left logo zone (bottom ~20%, left ~30%): no text or graphics. Use natural low-detail negative space from the scene itself, such as plain pavement, water, sky, wall, grass, shadow, or uncluttered foreground. Preserve the scene's normal color and lighting; do NOT brighten, whiten, blur, haze, vignette, wash out, or discolor this corner just to make room for the logo. The RoozVan logo is added automatically after generation.
+- Do not add RoozVan logo, brand name, handle, watermark, source name, QR code, or fake UI placeholder rectangles.
+- Avoid clutter, text boxes, multi-card layouts, tiny unreadable text, obvious faded patches, or local white glows.
 
 Visual direction:
 Use local Vancouver/BC visual cues when relevant: coastal water, ferries, mountains, urban streets, parks, outdoor lifestyle, transit, or neighborhood scenes. Make it look like a premium local Instagram news post.
