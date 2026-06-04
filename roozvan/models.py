@@ -13,10 +13,12 @@ class NewsItem:
     date: str | None
     url: str | None
     image_url: str | None
+    source_url: str | None = None
     article_content: str | None = None
     article_readable_without_js: bool | None = None
     story_image_path: str | None = None
     post_image_path: str | None = None
+    carousel_image_paths: list[str] | None = None
     post_caption_fa: str | None = None
 
     @classmethod
@@ -27,24 +29,28 @@ class NewsItem:
             date=optional_text(data.get("date")),
             url=optional_text(data.get("url")),
             image_url=optional_text(data.get("image_url")),
+            source_url=optional_text(data.get("source_url")),
             article_content=optional_text(data.get("article_content")),
             article_readable_without_js=optional_bool(data.get("article_readable_without_js")),
             story_image_path=optional_text(data.get("story_image_path")),
             post_image_path=optional_text(data.get("post_image_path")),
+            carousel_image_paths=optional_text_list(data.get("carousel_image_paths")),
             post_caption_fa=optional_text(data.get("post_caption_fa")),
         )
 
-    def to_dict(self) -> dict[str, str | bool | None]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "description": self.description,
             "date": self.date,
             "url": self.url,
             "image_url": self.image_url,
+            "source_url": self.source_url,
             "article_content": self.article_content,
             "article_readable_without_js": self.article_readable_without_js,
             "story_image_path": self.story_image_path,
             "post_image_path": self.post_image_path,
+            "carousel_image_paths": self.carousel_image_paths,
             "post_caption_fa": self.post_caption_fa,
         }
 
@@ -55,6 +61,7 @@ class NewsItem:
             "date": self.date,
             "url": self.url,
             "image_url": self.image_url,
+            "source_url": self.source_url,
         }
 
 
@@ -119,3 +126,12 @@ def optional_bool(value: Any) -> bool | None:
         if normalized in {"false", "0", "no"}:
             return False
     return bool(value)
+
+
+def optional_text_list(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        return None
+    output = [text for item in value if (text := optional_text(item))]
+    return output or None

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from openrouter_client import OpenRouterClient, OpenRouterError, load_default_env_files
+from roozvan.logo_overlay import DEFAULT_LOGO_PATH, apply_logo_overlay
 from roozvan.models import NewsItem, ScoredItem
 
 
@@ -44,6 +45,8 @@ def generate_story_images_for_scored_items(
     provider: str = "openrouter",
     max_tokens: int | None = 12000,
     workers: int = 4,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
 ) -> list[ScoredItem]:
     """Generate story images in parallel and return items with story_image_path set."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -60,6 +63,8 @@ def generate_story_images_for_scored_items(
             model=model,
             provider=provider,
             max_tokens=max_tokens,
+            apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+            logo_path=logo_path,
         )
         item = replace(scored_item.item, story_image_path=str(path))
         return index, replace(scored_item, item=item)
@@ -103,6 +108,8 @@ def generate_story_image(
     model: str = DEFAULT_STORY_IMAGE_MODEL,
     provider: str = "openrouter",
     max_tokens: int | None = 12000,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
 ) -> Path:
     prompt = build_story_image_prompt(prompt_template, scored_item.item)
     if provider == "gemini":
@@ -112,6 +119,8 @@ def generate_story_image(
             output_dir=output_dir,
             model=model,
             timeout=client.timeout,
+            apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+            logo_path=logo_path,
         )
     if provider != "openrouter":
         raise ValueError(f"Unsupported story image provider: {provider}")
@@ -160,6 +169,11 @@ def generate_story_image(
         ),
         encoding="utf-8",
     )
+    _finalize_story_image(
+        output_path,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
+    )
     return output_path
 
 
@@ -170,6 +184,8 @@ def generate_story_image_with_gemini(
     output_dir: Path,
     model: str = DEFAULT_GEMINI_STORY_IMAGE_MODEL,
     timeout: int = 300,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
 ) -> Path:
     response = post_gemini_image_request(prompt, model=model, timeout=timeout)
     inline_data, assistant_text = extract_gemini_inline_image(response)
@@ -196,7 +212,22 @@ def generate_story_image_with_gemini(
         ),
         encoding="utf-8",
     )
+    _finalize_story_image(
+        output_path,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
+    )
     return output_path
+
+
+def _finalize_story_image(
+    output_path: Path,
+    *,
+    apply_logo_overlay_enabled: bool,
+    logo_path: Path,
+) -> None:
+    if apply_logo_overlay_enabled:
+        apply_logo_overlay(output_path, logo_path=logo_path)
 
 
 def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[str, Any]:

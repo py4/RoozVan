@@ -39,6 +39,16 @@ def main() -> int:
         default="prompts/post_caption_generation.md",
         help="Post caption generation prompt file.",
     )
+    parser.add_argument(
+        "--carousel-content-prompt",
+        default="prompts/carousel_content_generation.md",
+        help="Carousel slide plan and caption generation prompt file.",
+    )
+    parser.add_argument(
+        "--carousel-image-prompt",
+        default="prompts/carousel_image_generation.md",
+        help="Carousel slide image generation prompt file.",
+    )
     parser.add_argument("--model", default="openrouter/owl-alpha", help="OpenRouter model name.")
     parser.add_argument(
         "--story-image-model",
@@ -89,7 +99,7 @@ def main() -> int:
         default=12000,
         help="Maximum output tokens for each post image generation response.",
     )
-    parser.add_argument("--workers", type=int, default=4, help="Number of parallel OpenRouter scoring requests.")
+    parser.add_argument("--workers", type=int, default=16, help="Number of parallel OpenRouter scoring requests.")
     parser.add_argument("--selection-limit", type=int, default=5, help="Maximum candidates to select.")
     parser.add_argument("--minimum-score", type=float, default=12, help="Minimum overall score for selected candidates.")
     parser.add_argument(
@@ -113,6 +123,16 @@ def main() -> int:
         help="Directory where generated post images will be saved.",
     )
     parser.add_argument(
+        "--logo-path",
+        default="assets/logo.png",
+        help="Logo image applied to the bottom-left of generated story and post images.",
+    )
+    parser.add_argument(
+        "--skip-logo-overlay",
+        action="store_true",
+        help="Skip applying the RoozVan logo to generated images.",
+    )
+    parser.add_argument(
         "--dump-dir",
         default=None,
         help="Optional directory for full pipeline debug dumps.",
@@ -127,6 +147,8 @@ def main() -> int:
         story_image_prompt_path=Path(args.story_image_prompt),
         post_image_prompt_path=Path(args.post_image_prompt),
         post_caption_prompt_path=Path(args.post_caption_prompt),
+        carousel_content_prompt_path=Path(args.carousel_content_prompt),
+        carousel_image_prompt_path=Path(args.carousel_image_prompt),
         model=args.model,
         story_image_model=args.story_image_model,
         gemini_story_image_model=args.gemini_story_image_model,
@@ -146,6 +168,8 @@ def main() -> int:
         generate_post_content=not args.skip_post_content,
         story_image_output_dir=Path(args.story_image_output_dir),
         post_image_output_dir=Path(args.post_image_output_dir),
+        logo_path=Path(args.logo_path),
+        apply_logo_overlay=not args.skip_logo_overlay,
     )
     started_at = time.perf_counter()
     result = build_default_pipeline().run(config)
@@ -173,6 +197,7 @@ def main() -> int:
         print(f"   readable_without_js={news.article_readable_without_js}")
         print(f"   story_image_path={news.story_image_path}")
         print(f"   post_image_path={news.post_image_path}")
+        print(f"   carousel_image_paths={news.carousel_image_paths}")
         print(f"   post_caption_fa={news.post_caption_fa}")
         print(f"   {news.url}")
         print()
@@ -207,6 +232,8 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "story_image_prompt_path": str(config.story_image_prompt_path),
             "post_image_prompt_path": str(config.post_image_prompt_path),
             "post_caption_prompt_path": str(config.post_caption_prompt_path),
+            "carousel_content_prompt_path": str(config.carousel_content_prompt_path),
+            "carousel_image_prompt_path": str(config.carousel_image_prompt_path),
             "model": config.model,
             "story_image_model": config.story_image_model,
             "gemini_story_image_model": config.gemini_story_image_model,
@@ -226,6 +253,8 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "generate_post_content": config.generate_post_content,
             "story_image_output_dir": str(config.story_image_output_dir),
             "post_image_output_dir": str(config.post_image_output_dir),
+            "logo_path": str(config.logo_path),
+            "apply_logo_overlay": config.apply_logo_overlay,
         },
     )
     write_html_report(dump_dir / "index.html", result.selected_items)
@@ -315,6 +344,29 @@ def write_html_report(path: Path, selected_items) -> None:
       object-fit: cover;
     }}
     .post .media {{ aspect-ratio: 4 / 5; }}
+    .carousel {{
+      width: min(100%, 420px);
+      direction: ltr;
+    }}
+    .carousel-track {{
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding-bottom: 10px;
+    }}
+    .carousel-slide {{
+      flex: 0 0 min(100%, 420px);
+      scroll-snap-align: start;
+    }}
+    .carousel-slide .media {{ aspect-ratio: 4 / 5; }}
+    .carousel-count {{
+      direction: ltr;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin: 0 0 8px;
+    }}
     .story {{
       max-width: 340px;
       border-radius: 22px;
@@ -416,16 +468,32 @@ def render_instagram_row(dump_dir: Path, item) -> str:
     news = item.item
     selected_format = item.format_selected or "unknown"
     is_story = selected_format == "story"
+    is_carousel = selected_format == "carousel_post"
     image_path = news.story_image_path if is_story else news.post_image_path
-    media = render_media(dump_dir, image_path, is_story=is_story)
+    image_paths = news.carousel_image_paths if is_carousel else None
+    media = render_carousel_media(dump_dir, image_paths) if is_carousel else render_media(dump_dir, image_path)
     caption = html.escape(news.post_caption_fa or "")
     title = html.escape(news.title or "")
     angle = html.escape(str(item.evaluation.get("persian_angle") or ""))
     score = html.escape(str(item.overall_score))
-    image_path_text = html.escape(image_path or "")
+    image_path_text = html.escape("\n".join(image_paths or []) if is_carousel else image_path or "")
+    source_url = html.escape(news.source_url or "")
+    article_url = html.escape(news.url or "")
 
     if is_story:
         preview = f'<div class="phone story">{media}</div>'
+    elif is_carousel:
+        preview = f"""
+        <div class="carousel">
+          <div class="carousel-count">{len(image_paths or [])} slides · scroll horizontally</div>
+          <div class="carousel-track">{media}</div>
+          <div class="phone post">
+            <div class="ig-header"><div class="avatar"></div><div>roozvan.ca</div></div>
+            <div class="ig-actions">♡ ◌ ↗</div>
+            <div class="caption"><strong>roozvan.ca</strong> {caption}</div>
+          </div>
+        </div>
+        """
     else:
         preview = f"""
         <div class="phone post">
@@ -443,17 +511,35 @@ def render_instagram_row(dump_dir: Path, item) -> str:
         <div class="badge">{html.escape(selected_format)} · score {score}</div>
         <h2 class="title">{title}</h2>
         <p class="angle">{angle}</p>
+        <div class="path">rss_source: {source_url}</div>
+        <div class="path">article: {article_url}</div>
         <div class="path">{image_path_text}</div>
       </aside>
     </section>
     """
 
 
-def render_media(dump_dir: Path, image_path: str | None, *, is_story: bool) -> str:
+def render_media(dump_dir: Path, image_path: str | None) -> str:
     if not image_path:
         return '<div class="missing">No image generated</div>'
     relative_path = html.escape(relative_asset_path(dump_dir, Path(image_path)))
     return f'<img class="media" src="{relative_path}" alt="">'
+
+
+def render_carousel_media(dump_dir: Path, image_paths: list[str] | None) -> str:
+    if not image_paths:
+        return '<div class="phone post"><div class="missing">No carousel slides generated</div></div>'
+    slides = []
+    for index, image_path in enumerate(image_paths, start=1):
+        slides.append(
+            f"""
+            <div class="phone post carousel-slide">
+              <div class="ig-header"><div class="avatar"></div><div>roozvan.ca · {index}/{len(image_paths)}</div></div>
+              {render_media(dump_dir, image_path)}
+            </div>
+            """
+        )
+    return "\n".join(slides)
 
 
 def relative_asset_path(from_dir: Path, asset_path: Path) -> str:

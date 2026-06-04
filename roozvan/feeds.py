@@ -171,6 +171,7 @@ def parse_feed(data: bytes, source: str) -> list[NewsItem]:
                 date=child_text(item, ["pubDate", "date", "dc:date", "atom:published", "atom:updated"]),
                 url=post_url,
                 image_url=image_url(item, post_url or source),
+                source_url=source,
             )
         )
 

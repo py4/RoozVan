@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from openrouter_client import OpenRouterClient, OpenRouterError
+from roozvan.logo_overlay import DEFAULT_LOGO_PATH, apply_logo_overlay
 from roozvan.models import ScoredItem
 from roozvan.scoring import is_unsupported_structured_output_error, parse_json_object
 from roozvan.story_images import (
@@ -28,11 +29,11 @@ from roozvan.story_images import (
 CAPTION_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "caption_fa": {"type": "string"},
-        "short_alt_text_fa": {"type": "string"},
-        "image_headline_fa": {"type": "string"},
-        "image_subline_fa": {"type": "string"},
-        "category_label_fa": {"type": "string"},
+        "caption_fa": {"type": "string", "minLength": 1},
+        "short_alt_text_fa": {"type": "string", "minLength": 1},
+        "image_headline_fa": {"type": "string", "minLength": 1},
+        "image_subline_fa": {"type": "string", "minLength": 1},
+        "category_label_fa": {"type": "string", "minLength": 1},
     },
     "required": [
         "caption_fa",
@@ -41,6 +42,37 @@ CAPTION_RESPONSE_SCHEMA: dict[str, Any] = {
         "image_subline_fa",
         "category_label_fa",
     ],
+    "additionalProperties": False,
+}
+
+CAROUSEL_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "caption_fa": {"type": "string", "minLength": 1},
+        "short_alt_text_fa": {"type": "string", "minLength": 1},
+        "slides": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 6,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "headline_fa": {"type": "string", "minLength": 1},
+                    "body_fa": {"type": "string", "minLength": 1},
+                    "category_label_fa": {"type": "string"},
+                    "visual_direction": {"type": "string", "minLength": 1},
+                },
+                "required": [
+                    "headline_fa",
+                    "body_fa",
+                    "category_label_fa",
+                    "visual_direction",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["caption_fa", "short_alt_text_fa", "slides"],
     "additionalProperties": False,
 }
 
@@ -56,11 +88,24 @@ def caption_response_format() -> dict[str, Any]:
     }
 
 
+def carousel_response_format() -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "instagram_carousel_post",
+            "strict": True,
+            "schema": CAROUSEL_RESPONSE_SCHEMA,
+        },
+    }
+
+
 def generate_post_content_for_scored_items(
     items: list[ScoredItem],
     *,
     image_prompt_template: str,
     caption_prompt_template: str,
+    carousel_content_prompt_template: str,
+    carousel_image_prompt_template: str,
     caption_client: OpenRouterClient,
     image_client: OpenRouterClient,
     output_dir: Path,
@@ -69,17 +114,21 @@ def generate_post_content_for_scored_items(
     caption_max_tokens: int = 900,
     image_max_tokens: int | None = 12000,
     workers: int = 4,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
 ) -> list[ScoredItem]:
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[ScoredItem | None] = [None] * len(items)
 
     def generate_indexed_post(index: int, scored_item: ScoredItem) -> tuple[int, ScoredItem]:
-        if scored_item.format_selected != "post":
+        if scored_item.format_selected not in {"post", "carousel_post"}:
             return index, scored_item
         completed = generate_post_content(
             scored_item,
             image_prompt_template=image_prompt_template,
             caption_prompt_template=caption_prompt_template,
+            carousel_content_prompt_template=carousel_content_prompt_template,
+            carousel_image_prompt_template=carousel_image_prompt_template,
             caption_client=caption_client,
             image_client=image_client,
             output_dir=output_dir,
@@ -87,6 +136,8 @@ def generate_post_content_for_scored_items(
             image_provider=image_provider,
             caption_max_tokens=caption_max_tokens,
             image_max_tokens=image_max_tokens,
+            apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+            logo_path=logo_path,
         )
         return index, completed
 
@@ -125,6 +176,8 @@ def generate_post_content(
     *,
     image_prompt_template: str,
     caption_prompt_template: str,
+    carousel_content_prompt_template: str,
+    carousel_image_prompt_template: str,
     caption_client: OpenRouterClient,
     image_client: OpenRouterClient,
     output_dir: Path,
@@ -132,7 +185,25 @@ def generate_post_content(
     image_provider: str,
     caption_max_tokens: int,
     image_max_tokens: int | None,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
 ) -> ScoredItem:
+    if scored_item.format_selected == "carousel_post":
+        return generate_carousel_content(
+            scored_item,
+            content_prompt_template=carousel_content_prompt_template,
+            image_prompt_template=carousel_image_prompt_template,
+            caption_client=caption_client,
+            image_client=image_client,
+            output_dir=output_dir,
+            image_model=image_model,
+            image_provider=image_provider,
+            caption_max_tokens=caption_max_tokens,
+            image_max_tokens=image_max_tokens,
+            apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+            logo_path=logo_path,
+        )
+
     context = build_post_context(scored_item)
     caption = generate_post_caption(
         caption_prompt_template,
@@ -155,6 +226,8 @@ def generate_post_content(
         model=image_model,
         provider=image_provider,
         max_tokens=image_max_tokens,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
     )
     item = replace(
         scored_item.item,
@@ -164,6 +237,57 @@ def generate_post_content(
     evaluation = {
         **scored_item.evaluation,
         "post_caption": caption,
+    }
+    return replace(scored_item, item=item, evaluation=evaluation)
+
+
+def generate_carousel_content(
+    scored_item: ScoredItem,
+    *,
+    content_prompt_template: str,
+    image_prompt_template: str,
+    caption_client: OpenRouterClient,
+    image_client: OpenRouterClient,
+    output_dir: Path,
+    image_model: str,
+    image_provider: str,
+    caption_max_tokens: int,
+    image_max_tokens: int | None,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
+) -> ScoredItem:
+    context = build_post_context(scored_item)
+    carousel = generate_carousel_plan(
+        content_prompt_template,
+        context,
+        caption_client,
+        max_tokens=max(caption_max_tokens, 1400),
+    )
+    slides = normalize_carousel_slides(carousel.get("slides"))
+    image_paths = generate_carousel_images(
+        scored_item,
+        image_prompt_template,
+        context,
+        slides,
+        image_client,
+        output_dir=output_dir,
+        model=image_model,
+        provider=image_provider,
+        max_tokens=image_max_tokens,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
+    )
+    item = replace(
+        scored_item.item,
+        carousel_image_paths=[str(path) for path in image_paths],
+        post_caption_fa=str(carousel.get("caption_fa") or ""),
+    )
+    evaluation = {
+        **scored_item.evaluation,
+        "carousel_post": {
+            **carousel,
+            "slides": slides,
+        },
     }
     return replace(scored_item, item=item, evaluation=evaluation)
 
@@ -213,6 +337,195 @@ def generate_post_caption(
     return {key: str(parsed.get(key) or "") for key in CAPTION_RESPONSE_SCHEMA["required"]}
 
 
+def generate_carousel_plan(
+    prompt_template: str,
+    context: dict[str, Any],
+    client: OpenRouterClient,
+    *,
+    max_tokens: int,
+) -> dict[str, Any]:
+    prompt = prompt_template.replace("{{POST_CONTEXT}}", json.dumps(context, ensure_ascii=False, indent=2))
+    try:
+        raw_response = client.ask(
+            prompt,
+            temperature=0.35,
+            max_tokens=max_tokens,
+            extra_body={
+                "response_format": carousel_response_format(),
+                "provider": {
+                    "require_parameters": True,
+                },
+            },
+        )
+    except OpenRouterError as exc:
+        if not is_unsupported_structured_output_error(exc):
+            raise
+        raw_response = client.ask(prompt, temperature=0.35, max_tokens=max_tokens)
+    parsed = parse_json_object(raw_response)
+    return {
+        "caption_fa": str(parsed.get("caption_fa") or ""),
+        "short_alt_text_fa": str(parsed.get("short_alt_text_fa") or ""),
+        "slides": normalize_carousel_slides(parsed.get("slides")),
+    }
+
+
+def normalize_carousel_slides(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        raise ValueError(f"Carousel slides must be a list: {value!r}")
+    slides: list[dict[str, str]] = []
+    for raw_slide in value:
+        if not isinstance(raw_slide, dict):
+            continue
+        slide = {
+            "headline_fa": str(raw_slide.get("headline_fa") or "").strip(),
+            "body_fa": str(raw_slide.get("body_fa") or "").strip(),
+            "category_label_fa": str(raw_slide.get("category_label_fa") or "").strip(),
+            "visual_direction": str(raw_slide.get("visual_direction") or "").strip(),
+        }
+        if slide["headline_fa"] and slide["body_fa"]:
+            slides.append(slide)
+    if not 3 <= len(slides) <= 6:
+        raise ValueError(f"Carousel must have 3-6 usable slides, got {len(slides)}")
+    return slides
+
+
+def generate_carousel_images(
+    scored_item: ScoredItem,
+    prompt_template: str,
+    context: dict[str, Any],
+    slides: list[dict[str, str]],
+    client: OpenRouterClient,
+    *,
+    output_dir: Path,
+    model: str,
+    provider: str,
+    max_tokens: int | None,
+    apply_logo_overlay_enabled: bool,
+    logo_path: Path,
+) -> list[Path]:
+    results: list[Path | None] = [None] * len(slides)
+
+    def generate_indexed_slide(index: int, slide: dict[str, str]) -> tuple[int, Path]:
+        return index, generate_carousel_slide_image(
+            scored_item,
+            prompt_template,
+            context,
+            slide,
+            slide_number=index + 1,
+            slide_count=len(slides),
+            client=client,
+            output_dir=output_dir,
+            model=model,
+            provider=provider,
+            max_tokens=max_tokens,
+            apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+            logo_path=logo_path,
+        )
+
+    max_workers = max(1, min(len(slides), 4))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(generate_indexed_slide, index, slide): index
+            for index, slide in enumerate(slides)
+        }
+        for future in concurrent.futures.as_completed(futures):
+            index, path = future.result()
+            results[index] = path
+
+    return [path for path in results if path is not None]
+
+
+def generate_carousel_slide_image(
+    scored_item: ScoredItem,
+    prompt_template: str,
+    context: dict[str, Any],
+    slide: dict[str, str],
+    *,
+    slide_number: int,
+    slide_count: int,
+    client: OpenRouterClient,
+    output_dir: Path,
+    model: str,
+    provider: str,
+    max_tokens: int | None,
+    apply_logo_overlay_enabled: bool,
+    logo_path: Path,
+) -> Path:
+    slide_context = {
+        **context,
+        "slide_number": slide_number,
+        "slide_count": slide_count,
+        "slide": slide,
+    }
+    prompt = prompt_template.replace("{{CAROUSEL_CONTEXT}}", json.dumps(slide_context, ensure_ascii=False, indent=2))
+    output_path = output_dir / f"{carousel_slide_filename_stem(scored_item, slide_number)}"
+    if provider == "gemini":
+        response = post_gemini_image_request_with_config(
+            prompt,
+            model=model,
+            timeout=client.timeout,
+            aspect_ratio="4:5",
+        )
+        inline_data, assistant_text = extract_gemini_inline_image(response)
+        extension = extension_for_mime_type(inline_data["mime_type"])
+        final_path = output_path.with_suffix(f".{extension}")
+        final_path.write_bytes(base64.b64decode(inline_data["data"]))
+        write_carousel_slide_summary(
+            final_path,
+            scored_item,
+            model,
+            slide,
+            slide_number,
+            slide_count,
+            response.get("usageMetadata"),
+            assistant_text,
+        )
+        if apply_logo_overlay_enabled:
+            apply_logo_overlay(final_path, logo_path=logo_path)
+        return final_path
+
+    if provider != "openrouter":
+        raise ValueError(f"Unsupported carousel image provider: {provider}")
+
+    body: dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "modalities": ["image", "text"],
+        "image_config": {
+            "aspect_ratio": "4:5",
+            "image_size": "1K",
+        },
+        "stream": False,
+    }
+    if max_tokens is not None:
+        body["max_tokens"] = max_tokens
+    response = post_openrouter_image_request(client, body)
+    message = response.get("choices", [{}])[0].get("message", {})
+    images = message.get("images") or []
+    if not images:
+        raise OpenRouterError(f"OpenRouter returned no carousel slide images: {response}")
+    image_url = images[0].get("image_url", {}).get("url")
+    if not isinstance(image_url, str):
+        raise OpenRouterError(f"OpenRouter returned unexpected carousel image payload: {images[0]!r}")
+    mime, payload = parse_data_url(image_url)
+    extension = extension_for_mime_type(mime)
+    final_path = output_path.with_suffix(f".{extension}")
+    final_path.write_bytes(base64.b64decode(payload))
+    write_carousel_slide_summary(
+        final_path,
+        scored_item,
+        model,
+        slide,
+        slide_number,
+        slide_count,
+        response.get("usage"),
+        message.get("content"),
+    )
+    if apply_logo_overlay_enabled:
+        apply_logo_overlay(final_path, logo_path=logo_path)
+    return final_path
+
+
 def generate_post_image(
     scored_item: ScoredItem,
     prompt_template: str,
@@ -223,6 +536,8 @@ def generate_post_image(
     model: str = DEFAULT_STORY_IMAGE_MODEL,
     provider: str = "openrouter",
     max_tokens: int | None = 12000,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
 ) -> Path:
     prompt = prompt_template.replace("{{POST_CONTEXT}}", json.dumps(context, ensure_ascii=False, indent=2))
     output_path = output_dir / f"{post_image_filename_stem(scored_item)}"
@@ -238,6 +553,8 @@ def generate_post_image(
         final_path = output_path.with_suffix(f".{extension}")
         final_path.write_bytes(base64.b64decode(inline_data["data"]))
         write_post_image_summary(final_path, scored_item, model, response.get("usageMetadata"), assistant_text)
+        if apply_logo_overlay_enabled:
+            apply_logo_overlay(final_path, logo_path=logo_path)
         return final_path
 
     if provider != "openrouter":
@@ -268,6 +585,8 @@ def generate_post_image(
     final_path = output_path.with_suffix(f".{extension}")
     final_path.write_bytes(base64.b64decode(payload))
     write_post_image_summary(final_path, scored_item, model, response.get("usage"), message.get("content"))
+    if apply_logo_overlay_enabled:
+        apply_logo_overlay(final_path, logo_path=logo_path)
     return final_path
 
 
@@ -295,8 +614,45 @@ def write_post_image_summary(
     )
 
 
+def write_carousel_slide_summary(
+    image_path: Path,
+    scored_item: ScoredItem,
+    model: str,
+    slide: dict[str, str],
+    slide_number: int,
+    slide_count: int,
+    usage: Any,
+    assistant_content: str | None,
+) -> None:
+    image_path.with_suffix(".response_summary.json").write_text(
+        json.dumps(
+            {
+                "model": model,
+                "source_index": scored_item.source_index,
+                "title": scored_item.item.title,
+                "carousel_slide_image_path": str(image_path),
+                "slide_number": slide_number,
+                "slide_count": slide_count,
+                "slide": slide,
+                "usage": usage,
+                "assistant_content": assistant_content,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def post_image_filename_stem(scored_item: ScoredItem) -> str:
     title = scored_item.item.title or "post"
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", title.lower()).strip("-")
     slug = slug[:70].strip("-") or "post"
     return f"post-{scored_item.source_index}-{slug}"
+
+
+def carousel_slide_filename_stem(scored_item: ScoredItem, slide_number: int) -> str:
+    title = scored_item.item.title or "carousel"
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", title.lower()).strip("-")
+    slug = slug[:62].strip("-") or "carousel"
+    return f"carousel-{scored_item.source_index}-{slide_number:02d}-{slug}"

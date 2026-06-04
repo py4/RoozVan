@@ -6,6 +6,19 @@ Not every good item must be directly actionable. Instagram Stories can also cove
 
 Outdoor activities and local lifestyle are important for this audience. Give fair credit to news about hiking, camping, cycling, parks, beaches, ferries, Vancouver Island trips, breweries, restaurants, food businesses, local events, and weekend plans when the item is useful or interesting to people living in Vancouver.
 
+Sports policy:
+This page should generally NOT post low-value sports news. Give very low scores for routine sports content such as NFL, NHL, hockey, Canucks, Whitecaps player personal news, game results, roster changes, captain/coach speculation, signings, contracts, injuries, awards, standings, or athlete profiles.
+
+For those low-value sports items, normally set:
+- practical_usefulness: 0 or 1
+- immigrant_relevance: 0 or 1
+- actionability: 0 or 1
+- share_save_potential: 0 or 1
+- urgency: 0 or 1
+- category: other
+
+Only score sports-related items higher when there is clear practical value for Vancouver residents, such as ticket deadlines, public transit changes, road closures, safety alerts, major community watch parties, family-friendly local events, or local business/community impact. In that case, score the practical logistics, not the team/player news itself.
+
 Given the following candidate item, score it from 0 to 5 on each dimension:
 
 1. Local relevance:

@@ -15,6 +15,7 @@ from roozvan.format_selection import select_formats_for_scored_items
 from roozvan.models import NewsItem, PostDraft, ScoredItem
 from roozvan.post_content import generate_post_content_for_scored_items
 from roozvan.scoring import rank_scored_items, score_news_items
+from roozvan.logo_overlay import DEFAULT_LOGO_PATH
 from roozvan.story_images import (
     DEFAULT_GEMINI_STORY_IMAGE_MODEL,
     DEFAULT_STORY_IMAGE_MODEL,
@@ -30,6 +31,8 @@ class PipelineConfig:
     story_image_prompt_path: Path = Path("prompts/story_image_generation.md")
     post_image_prompt_path: Path = Path("prompts/post_image_generation.md")
     post_caption_prompt_path: Path = Path("prompts/post_caption_generation.md")
+    carousel_content_prompt_path: Path = Path("prompts/carousel_content_generation.md")
+    carousel_image_prompt_path: Path = Path("prompts/carousel_image_generation.md")
     model: str = "openrouter/owl-alpha"
     story_image_model: str = DEFAULT_STORY_IMAGE_MODEL
     gemini_story_image_model: str = DEFAULT_GEMINI_STORY_IMAGE_MODEL
@@ -42,13 +45,15 @@ class PipelineConfig:
     story_image_max_tokens: int | None = 12000
     post_caption_max_tokens: int = 900
     post_image_max_tokens: int | None = 12000
-    workers: int = 4
+    workers: int = 16
     selection_limit: int = 5
     minimum_score: float = 12
     generate_story_images: bool = True
     generate_post_content: bool = True
     story_image_output_dir: Path = Path("generated_story_images")
     post_image_output_dir: Path = Path("generated_post_images")
+    logo_path: Path = DEFAULT_LOGO_PATH
+    apply_logo_overlay: bool = True
 
 
 @dataclass
@@ -170,6 +175,8 @@ class StoryImageGenerationStage:
             provider=config.story_image_provider,
             max_tokens=config.story_image_max_tokens,
             workers=config.workers,
+            apply_logo_overlay_enabled=config.apply_logo_overlay,
+            logo_path=config.logo_path,
         )
         return result
 
@@ -182,6 +189,8 @@ class PostContentGenerationStage:
             return result
         image_prompt_template = config.post_image_prompt_path.read_text(encoding="utf-8")
         caption_prompt_template = config.post_caption_prompt_path.read_text(encoding="utf-8")
+        carousel_content_prompt_template = config.carousel_content_prompt_path.read_text(encoding="utf-8")
+        carousel_image_prompt_template = config.carousel_image_prompt_path.read_text(encoding="utf-8")
         image_model = (
             config.gemini_story_image_model
             if config.story_image_provider == "gemini"
@@ -197,6 +206,8 @@ class PostContentGenerationStage:
             result.selected_items,
             image_prompt_template=image_prompt_template,
             caption_prompt_template=caption_prompt_template,
+            carousel_content_prompt_template=carousel_content_prompt_template,
+            carousel_image_prompt_template=carousel_image_prompt_template,
             caption_client=caption_client,
             image_client=image_client,
             output_dir=config.post_image_output_dir,
@@ -205,6 +216,8 @@ class PostContentGenerationStage:
             caption_max_tokens=config.post_caption_max_tokens,
             image_max_tokens=config.post_image_max_tokens,
             workers=config.workers,
+            apply_logo_overlay_enabled=config.apply_logo_overlay,
+            logo_path=config.logo_path,
         )
         return result
 
@@ -219,7 +232,7 @@ class VisualContentGenerationStage:
         post_indexed_items = [
             (index, item)
             for index, item in enumerate(result.selected_items)
-            if item.format_selected == "post"
+            if item.format_selected in {"post", "carousel_post"}
         ]
         story_indexed_items = [
             (index, item)
@@ -233,6 +246,8 @@ class VisualContentGenerationStage:
                 return []
             image_prompt_template = config.post_image_prompt_path.read_text(encoding="utf-8")
             caption_prompt_template = config.post_caption_prompt_path.read_text(encoding="utf-8")
+            carousel_content_prompt_template = config.carousel_content_prompt_path.read_text(encoding="utf-8")
+            carousel_image_prompt_template = config.carousel_image_prompt_path.read_text(encoding="utf-8")
             image_model = (
                 config.gemini_story_image_model
                 if config.story_image_provider == "gemini"
@@ -248,6 +263,8 @@ class VisualContentGenerationStage:
                 [item for _, item in post_indexed_items],
                 image_prompt_template=image_prompt_template,
                 caption_prompt_template=caption_prompt_template,
+                carousel_content_prompt_template=carousel_content_prompt_template,
+                carousel_image_prompt_template=carousel_image_prompt_template,
                 caption_client=caption_client,
                 image_client=image_client,
                 output_dir=config.post_image_output_dir,
@@ -256,6 +273,8 @@ class VisualContentGenerationStage:
                 caption_max_tokens=config.post_caption_max_tokens,
                 image_max_tokens=config.post_image_max_tokens,
                 workers=config.workers,
+                apply_logo_overlay_enabled=config.apply_logo_overlay,
+                logo_path=config.logo_path,
             )
             return [(index, item) for (index, _), item in zip(post_indexed_items, generated)]
 
@@ -282,6 +301,8 @@ class VisualContentGenerationStage:
                 provider=config.story_image_provider,
                 max_tokens=config.story_image_max_tokens,
                 workers=config.workers,
+                apply_logo_overlay_enabled=config.apply_logo_overlay,
+                logo_path=config.logo_path,
             )
             return [(index, item) for (index, _), item in zip(story_indexed_items, generated)]
 

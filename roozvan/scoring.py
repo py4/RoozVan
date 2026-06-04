@@ -98,28 +98,6 @@ LIFESTYLE_FYI_KEYWORDS = (
     "festival",
     "weekend",
 )
-SPORTS_LOW_VALUE_KEYWORDS = (
-    "hockey",
-    "pwhl",
-    "stanley cup",
-    "player",
-    "star",
-    "re-sign",
-    "contract",
-    "roster",
-    "protect",
-    "athlete",
-    "hammer thrower",
-    "goal",
-)
-SPORTS_USEFUL_KEYWORDS = (
-    "tickets",
-    "transit",
-    "road closure",
-    "watch party",
-    "community event",
-    "festival",
-)
 DIRECT_IMPACT_KEYWORDS = (
     "surcharge",
     "fee",
@@ -312,10 +290,6 @@ def editorial_adjustment(
         adjustment += 2
         reasons.append("outdoor_lifestyle_or_local_experience_relevance")
 
-    if is_low_value_sports_signal(item):
-        adjustment -= 6
-        reasons.append("sports_result_or_roster_without_community_use")
-
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
         adjustment -= 4
         reasons.append("crime_without_actionable_safety_guidance")
@@ -377,11 +351,6 @@ def is_lifestyle_or_outdoor_signal(item: NewsItem | dict[str, Any] | None) -> bo
     return contains_keyword(text, LIFESTYLE_FYI_KEYWORDS)
 
 
-def is_low_value_sports_signal(item: NewsItem | dict[str, Any] | None) -> bool:
-    text = item_text(item).lower()
-    return contains_keyword(text, SPORTS_LOW_VALUE_KEYWORDS) and not contains_keyword(text, SPORTS_USEFUL_KEYWORDS)
-
-
 def contains_keyword(text: str, keywords: tuple[str, ...]) -> bool:
     return any(re.search(rf"\b{re.escape(keyword)}\b", text) for keyword in keywords)
 
@@ -402,8 +371,6 @@ def is_interesting_fyi_story(score: dict[str, Any], item: NewsItem | dict[str, A
 
 def passes_selection_gate(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> bool:
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
-        return False
-    if is_low_value_sports_signal(item):
         return False
     if is_interesting_fyi_story(score, item):
         return True
@@ -431,9 +398,6 @@ def selection_gate_reasons(score: dict[str, Any], item: NewsItem | dict[str, Any
     reasons = []
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
         reasons.append("blocked_crime_without_actionable_safety_guidance")
-        return reasons
-    if is_low_value_sports_signal(item):
-        reasons.append("blocked_sports_result_or_roster_without_community_use")
         return reasons
     if is_interesting_fyi_story(score, item):
         reasons.append("interesting_local_fyi_story")
