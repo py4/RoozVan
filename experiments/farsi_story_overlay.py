@@ -175,6 +175,7 @@ def render_overlay(
     *,
     regular_font_path: Path | None = None,
     bold_font_path: Path | None = None,
+    show_kicker: bool = True,
 ) -> Path:
     bold_font_path = bold_font_path or first_existing_path(DEFAULT_BOLD_FONTS)
     regular_font_path = regular_font_path or first_existing_path(DEFAULT_REGULAR_FONTS)
@@ -188,27 +189,28 @@ def render_overlay(
     right = image.width - margin_x
     y = round(image.height * 0.052)
 
-    kicker_font = load_font(bold_font_path, round(image.width * 0.038))
-    kicker_padding_x = round(image.width * 0.028)
-    kicker_padding_y = round(image.width * 0.012)
-    kicker_width = text_width(draw, story_text.kicker, kicker_font)
-    kicker_height = round(image.width * 0.064)
-    chip = (
-        right - kicker_width - 2 * kicker_padding_x,
-        y,
-        right,
-        y + kicker_height,
-    )
-    draw_rounded_rect(draw, chip, radius=round(kicker_height * 0.45), fill=(23, 118, 99, 235))
-    draw_rtl_line(
-        draw,
-        story_text.kicker,
-        right=right - kicker_padding_x,
-        y=y + kicker_padding_y,
-        font=kicker_font,
-        fill=(255, 255, 255, 255),
-    )
-    y += kicker_height + round(image.height * 0.022)
+    if show_kicker and story_text.kicker.strip():
+        kicker_font = load_font(bold_font_path, round(image.width * 0.038))
+        kicker_padding_x = round(image.width * 0.028)
+        kicker_padding_y = round(image.width * 0.012)
+        kicker_width = text_width(draw, story_text.kicker, kicker_font)
+        kicker_height = round(image.width * 0.064)
+        chip = (
+            right - kicker_width - 2 * kicker_padding_x,
+            y,
+            right,
+            y + kicker_height,
+        )
+        draw_rounded_rect(draw, chip, radius=round(kicker_height * 0.45), fill=(23, 118, 99, 235))
+        draw_rtl_line(
+            draw,
+            story_text.kicker,
+            right=right - kicker_padding_x,
+            y=y + kicker_padding_y,
+            font=kicker_font,
+            fill=(255, 255, 255, 255),
+        )
+        y += kicker_height + round(image.height * 0.022)
 
     title_font, title_lines = fit_font_size(
         draw,

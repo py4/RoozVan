@@ -39,6 +39,7 @@ Caption rules:
 Language rules:
 - Write natural Persian for Iranian residents of Metro Vancouver.
 - Use standard Persian numerals in Persian sentences: ۲۵، ۴۰ هزار، ۵٪.
+- For dates and deadlines, use the Gregorian calendar with English month names (January, February, March, April, May, June, July, August, September, October, November, December). Do not convert to Persian solar-calendar month names (فروردین، اردیبهشت، خرداد، تیر، ...). Persian month transliterations like ژوئن are also discouraged — prefer `June`, `July`, etc. Day numbers may stay in Persian numerals when natural (e.g. «از ۱۲ June» or «۸ تا ۲۸ July»).
 - Avoid awkward phonetic transliteration. Use a normal Persian equivalent for generic concepts when one exists.
 - Preserve official proper nouns, acronyms, brand names, station names, venue names, product names, and event names exactly in English when needed for recognition.
 - Do not translate or phonetic-transliterate official names. If the source uses names like TransLink, Compass, SeaBus, Science World, Capilano Suspension Bridge, FIFA Fan Festival, BC Place, YVR, PNE, or Little Sister's, keep those names in English exactly.

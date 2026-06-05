@@ -24,11 +24,14 @@ Rules:
 - Use standard Persian numerals where appropriate.
 - For global brand names, keep official English spelling (Uber, Lyft, RiLo, BC Ferries) or the accepted short Persian form `لیفت` for Lyft. Never use awkward phonetic transliterations such as `لایفت`, `اوبر` for Uber (prefer `Uber`), or `سورج پرایسینگ` for surge pricing.
 - For Metro Vancouver streets, neighbourhoods, stations, parks, and venues, keep the official English name exactly as published. Do not phonetic-transliterate them into Persian.
+- For dates and deadlines in `caption_fa` and slide copy, use the Gregorian calendar with English month names (January, February, March, April, May, June, July, August, September, October, November, December). Do not convert to Persian solar-calendar month names (فروردین، اردیبهشت، خرداد، تیر، ...). Persian month transliterations like ژوئن are also discouraged — prefer `June`, `July`, etc. Day numbers may stay in Persian numerals when natural (e.g. «از ۱۲ June» or «۸ تا ۲۸ July»).
 - Avoid fragile symbol-style emoji such as ℹ️, ©️, ®️, ™️, ↗️.
 - The caption may briefly restate the carousel topic, but it must add context beyond the slide text.
 - Do not use downward CTAs such as "بیشتر بخونید 👇", "ادامه پایین", or any down-arrow implication. In Instagram carousel, the detail is inside the slides, not below the caption.
 - If a CTA is useful, use carousel-specific language such as "اسلایدها رو ورق بزنید", "برای جزئیات ورق بزنید", "ذخیره کنید", or "برای دوست‌تان بفرستید".
-- **Events & festivals:** When the carousel is about local events, festivals, weekend plans, things to do, markets, parades, or family outings (`community_event` or similar), the **final slide** and/or the **last `caption_fa` bullet** should invite readers to **tag friends** or **share the post** with someone they might go with (one short, friendly line in Persian). Do not use this social CTA for tax, crime, policy, or hardship stories.
+- **Share-worthy utility:** For rebates, CRA, MSP, immigration, housing, healthcare, deadlines, eligibility, or other save/DM-worthy guides, the **final slide** and/or the **last `caption_fa` bullet** should invite readers to save or forward to someone who might qualify (👥 or 📤). Example: «این کاروسل رو برای کسی که تازه اومده کانادا بفرست».
+- **Events & festivals:** When the carousel is about local events, festivals, weekend plans, things to do, markets, parades, or family outings (`community_event` or similar), the **final slide** and/or the **last `caption_fa` bullet** should invite readers to **tag friends** or **share the post** with someone they might go with (one short, friendly line in Persian).
+- **Never use share/tag CTAs** for crime, tragedy, political outrage, or hardship stories with no helpful action.
 - For `caption_fa`, use 3-5 short bullet points separated by blank lines (`\\n\\n`). Start bullets with 📌, 🗓️, 📍, ✅, or 🔎 when useful.
 - Put 5-8 relevant hashtags at the end of `caption_fa` on their own line after a blank line.
 - Use broad, reusable hashtags for city, province, audience, and category. Avoid overly specific one-off hashtags that describe only this exact story.
