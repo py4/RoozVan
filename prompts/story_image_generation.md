@@ -14,6 +14,8 @@ Include the details that pass that test. Omit details that add clutter, repeat t
 
 If the article includes concrete details that explain why the news matters, include the most useful summarized version of them. Do not force every date, number, location, or name into the image; choose the details that best carry the story. Do not over-sanitize important context, but avoid gratuitous shock language or tabloid phrasing.
 
+Because the Story image may be posted without a caption or clickable source, never refer to "link in bio", "caption", "source", "below", "more details", or any external place to continue reading. Do not invent dates, numbers, locations, deadlines, prices, ticket information, eligibility details, or calls to action that are not present in the provided article.
+
 Render exactly four distinct text elements:
 1. Category Label (Upper-Right): Use a highly specific, short category tag. Never use generic labels like "خبر مهم".
    The category text must sit on a solid background color (a small pill or badge) so it stays readable on any photo.
