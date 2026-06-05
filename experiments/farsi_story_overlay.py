@@ -42,6 +42,29 @@ class StoryText:
     body: str
 
 
+OVERLAY_CATEGORY_LABELS_FA = {
+    "transit": "حمل‌ونقل",
+    "traffic": "ترافیک",
+    "money": "هزینه‌ها",
+    "jobs": "کار",
+    "weather": "هواشناسی",
+    "event": "رویداد",
+    "food": "خوراکی",
+    "travel": "سفر",
+    "community": "جامعه",
+    "lifestyle": "زندگی ونکوور",
+    "sports": "ورزش",
+    "culture": "فرهنگ",
+    "safety": "ایمنی",
+    "government": "دولت",
+    "other": "ونکوور",
+}
+
+
+def overlay_category_label_fa(category: str | None) -> str:
+    return OVERLAY_CATEGORY_LABELS_FA.get(str(category or "").strip(), "ونکوور")
+
+
 def first_existing_path(candidates: tuple[str, ...]) -> Path:
     for candidate in candidates:
         path = Path(candidate)

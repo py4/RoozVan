@@ -23,7 +23,7 @@ from roozvan.story_images import (
     post_openrouter_image_request,
 )
 from run_pipeline import write_html_report, write_json
-from experiments.farsi_story_overlay import StoryText, render_overlay
+from experiments.farsi_story_overlay import StoryText, overlay_category_label_fa, render_overlay
 
 
 DEFAULT_TEXT_MODEL = "openai/gpt-oss-120b:free"
@@ -46,50 +46,116 @@ def load_items(
     ]
 
 
-def generate_overlay_copy(items: list[ScoredItem], *, text_model: str) -> dict[int, StoryText]:
-    candidates = []
-    for item in items:
-        news = item.item
-        candidates.append(
-            {
-                "source_index": item.source_index,
-                "format": item.format_selected,
-                "english_title": news.title,
-                "description": news.description,
-                "persian_angle": item.evaluation.get("persian_angle"),
-                "post_caption_fa": news.post_caption_fa,
-            }
-        )
-
+def overlay_copy_prompt(item: ScoredItem) -> str:
+    news = item.item
+    candidate = {
+        "source_index": item.source_index,
+        "format": item.format_selected,
+        "english_title": news.title,
+        "description": news.description,
+        "category": item.evaluation.get("category"),
+        "post_caption_fa": news.post_caption_fa,
+    }
     prompt = (
-        "For each RoozVan Instagram item, write compact Persian/Farsi overlay copy.\n"
+        "Write compact Persian/Farsi overlay copy for this RoozVan IMAGE, not the caption.\n"
         "Audience: Iranian diaspora in Metro Vancouver. Tone: clear, local, practical.\n"
-        "Return only valid JSON: {\"items\":[{\"source_index\":number,"
-        "\"kicker\":\"...\",\"title\":\"...\",\"body\":\"...\"}]}.\n"
-        "Rules: all visible copy must be Persian/Farsi, no hashtags, no emojis, "
-        "title max 9 words, body max 22 words, kicker max 3 words. "
-        "Make title bigger-news style; body should explain the practical point.\n"
-        "Do not translate English news word-for-word; understand, simplify, localize, "
-        "and explain naturally in Farsi for Vancouver residents.\n"
-        "Avoid awkward phonetic transliteration of English terms. If there is a common, "
-        "natural Persian equivalent, use it; otherwise keep the original English phrase. "
-        "For example, use «افزایش ناگهانی قیمت» or \"surge pricing\", never "
-        "«سورج پرایسینگ».\n"
-        "For global brand names, keep official English spelling when that is the natural "
-        "local form: Uber, Lyft, RiLo, BC Ferries. Do not write awkward forms like "
-        "«اوبر», «لایفت», or «بی‌سی فریز».\n"
-        "For Metro Vancouver streets, neighbourhoods, stations, parks, venues, airports, "
-        "and official event/place names, keep the official English name exactly as "
-        "published when needed. Do not phonetic-transliterate names into Persian. "
-        "You may add a short Persian label before the English name, e.g. "
-        "«پارک Stanley Park» or «ایستگاه Waterfront».\n"
+        "Return only valid JSON: {\"source_index\":number,\"kicker\":\"...\",\"title\":\"...\",\"body\":\"...\"}.\n"
+        "Core length rules: kicker max 3 words, title 4-7 words, body one sentence under 18 words. "
+        "No hashtags, no emojis, no dense paragraphs.\n"
+        "The title should be a clean Farsi news hook. The body should explain the practical point.\n"
+        "Do not translate word-for-word. Understand the item, localize it, and write natural Farsi.\n"
+        "Use natural Persian for generic concepts. Preserve official proper nouns, acronyms, brand names, "
+        "station names, venue names, product names, and event names exactly in English when they are needed "
+        "for recognition. Do not translate or phonetic-transliterate those names.\n"
+        "Avoid awkward phonetic transliteration. If a term is not a proper noun and has a normal Persian "
+        "equivalent, use the Persian equivalent.\n"
+        "Do not invent a category or label that is not supported by the item.\n"
+        "Prefer Farsi wording for the headline; use at most one official English name in the title.\n"
+        "Never write internal judgment language such as low value, not useful, or not practical.\n"
         "Use standard Persian numerals for numbers in Persian sentences, e.g. ۲۵، ۴۰ هزار، ۵٪.\n"
-        "Keep the copy short enough for an image overlay; no dense paragraphs.\n\n"
-        f"Items:\n{json.dumps(candidates, ensure_ascii=False, indent=2)}"
+        "Keep the copy short enough for an image overlay.\n\n"
+        f"Item:\n{json.dumps(candidate, ensure_ascii=False, indent=2)}"
     )
+    return prompt
+
+
+def generate_overlay_copy_for_item(item: ScoredItem, *, text_model: str) -> StoryText:
     client = OpenRouterClient(model=text_model, timeout=120, app_name="RoozVan")
+    raw = client.ask(overlay_copy_prompt(item), temperature=0.2, max_tokens=350)
+    parsed = json.loads(extract_json(raw))
+    return StoryText(
+        kicker=str(parsed.get("kicker") or category_kicker(item)),
+        title=str(parsed.get("title") or "خبر مهم ونکوور"),
+        body=str(parsed.get("body") or ""),
+    )
+
+
+def generate_overlay_copy(
+    items: list[ScoredItem],
+    *,
+    text_model: str,
+    workers: int,
+) -> dict[int, StoryText]:
+    by_index: dict[int, StoryText] = {}
+    worker_count = max(1, min(workers, len(items) or 1))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(generate_overlay_copy_for_item, item, text_model=text_model): item
+            for item in items
+        }
+        for future in concurrent.futures.as_completed(futures):
+            item = futures[future]
+            try:
+                by_index[item.source_index] = future.result()
+            except Exception as exc:
+                print(
+                    f"warning: overlay copy failed for {item.source_index}, using fallback: {exc}",
+                    file=sys.stderr,
+                )
+                by_index[item.source_index] = fallback_story_text(item)
+    return by_index
+
+
+def overlay_copy_from_unified_content(items: list[ScoredItem]) -> dict[int, StoryText]:
+    by_index: dict[int, StoryText] = {}
+    for item in items:
+        content = item.evaluation.get("instagram_content")
+        if not isinstance(content, dict):
+            continue
+        overlay = content.get("overlay")
+        if not isinstance(overlay, dict):
+            continue
+        by_index[item.source_index] = StoryText(
+            kicker=overlay_category_label_fa(str(overlay.get("category") or "")),
+            title=str(overlay.get("title") or "خبر مهم ونکوور"),
+            body=str(overlay.get("body") or ""),
+        )
+    return by_index
+
+
+def generate_overlay_copy_legacy_batch(items: list[ScoredItem], *, text_model: str) -> dict[int, StoryText]:
+    """Kept for quick comparison if batch prompting is useful later."""
     try:
-        raw = client.ask(prompt, temperature=0.2, max_tokens=2200)
+        candidates = []
+        for item in items:
+            news = item.item
+            candidates.append(
+                {
+                    "source_index": item.source_index,
+                    "format": item.format_selected,
+                    "english_title": news.title,
+                    "description": news.description,
+                    "category": item.evaluation.get("category"),
+                    "post_caption_fa": news.post_caption_fa,
+                }
+            )
+        client = OpenRouterClient(model=text_model, timeout=120, app_name="RoozVan")
+        raw = client.ask(
+            "Return compact Farsi overlay copy JSON for these items: "
+            f"{json.dumps(candidates, ensure_ascii=False)}",
+            temperature=0.2,
+            max_tokens=2200,
+        )
         parsed = json.loads(extract_json(raw))
     except Exception as exc:
         print(f"warning: overlay copy LLM failed, using fallback copy: {exc}", file=sys.stderr)
@@ -111,6 +177,24 @@ def generate_overlay_copy(items: list[ScoredItem], *, text_model: str) -> dict[i
     return by_index
 
 
+def write_overlay_copy(path: Path, overlay_copy: dict[int, StoryText]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                str(source_index): {
+                    "kicker": text.kicker,
+                    "title": text.title,
+                    "body": text.body,
+                }
+                for source_index, text in sorted(overlay_copy.items())
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def extract_json(raw: str) -> str:
     text = raw.strip()
     if text.startswith("```"):
@@ -125,10 +209,10 @@ def extract_json(raw: str) -> str:
 
 
 def fallback_story_text(item: ScoredItem) -> StoryText:
-    title = item.evaluation.get("persian_angle") or item.item.post_caption_fa or "خبر مهم برای ونکوور"
+    title = item.item.post_caption_fa or item.item.title or "خبر مهم برای ونکوور"
     words = str(title).split()
-    compact_title = " ".join(words[:9])
-    body = " ".join(words[9:30]) or "جزئیات این خبر می‌تواند برای برنامه‌ریزی روزانه مفید باشد."
+    compact_title = " ".join(words[:7])
+    body = " ".join(words[7:25]) or "جزئیات این خبر می‌تواند برای برنامه‌ریزی روزانه مفید باشد."
     return StoryText(kicker=category_kicker(item), title=compact_title, body=body)
 
 
@@ -255,6 +339,11 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Parallel image/background workers. Existing backgrounds are reused unless --force is set.",
     )
+    parser.add_argument(
+        "--prefer-unified-content",
+        action="store_true",
+        help="Use evaluation.instagram_content.overlay when present before calling --text-model.",
+    )
     return parser.parse_args()
 
 
@@ -265,7 +354,13 @@ def main() -> int:
     only_source_indexes = set(args.only_source_indexes) if args.only_source_indexes else None
     all_data = json.loads((args.dump_dir / "selected.json").read_text(encoding="utf-8"))
     items = load_items(args.dump_dir, formats=formats, only_source_indexes=only_source_indexes)
-    overlay_copy = generate_overlay_copy(items, text_model=args.text_model)
+    overlay_copy = overlay_copy_from_unified_content(items) if args.prefer_unified_content else {}
+    missing_items = [item for item in items if item.source_index not in overlay_copy]
+    if missing_items:
+        overlay_copy.update(
+            generate_overlay_copy(missing_items, text_model=args.text_model, workers=args.workers)
+        )
+    write_overlay_copy(args.output_dir / "overlay_copy.json", overlay_copy)
 
     def process_item(item: ScoredItem) -> tuple[int, str]:
         aspect_ratio = "9:16" if item.format_selected == "story" else "4:5"
