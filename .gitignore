@@ -4,5 +4,6 @@ env.yaml
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.cache/
 runs/
 generated_post_images/
