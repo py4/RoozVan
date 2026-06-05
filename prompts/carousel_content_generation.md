@@ -28,6 +28,7 @@ Rules:
 - The caption may briefly restate the carousel topic, but it must add context beyond the slide text.
 - Do not use downward CTAs such as "بیشتر بخونید 👇", "ادامه پایین", or any down-arrow implication. In Instagram carousel, the detail is inside the slides, not below the caption.
 - If a CTA is useful, use carousel-specific language such as "اسلایدها رو ورق بزنید", "برای جزئیات ورق بزنید", "ذخیره کنید", or "برای دوست‌تان بفرستید".
+- **Events & festivals:** When the carousel is about local events, festivals, weekend plans, things to do, markets, parades, or family outings (`community_event` or similar), the **final slide** and/or the **last `caption_fa` bullet** should invite readers to **tag friends** or **share the post** with someone they might go with (one short, friendly line in Persian). Do not use this social CTA for tax, crime, policy, or hardship stories.
 - For `caption_fa`, use 3-5 short bullet points separated by blank lines (`\\n\\n`). Start bullets with 📌, 🗓️, 📍, ✅, or 🔎 when useful.
 - Put 5-8 relevant hashtags at the end of `caption_fa` on their own line after a blank line.
 - Use broad, reusable hashtags for city, province, audience, and category. Avoid overly specific one-off hashtags that describe only this exact story.

@@ -134,12 +134,15 @@ def generate_post_content_for_scored_items(
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
     generate_images: bool = False,
+    generate_carousel_content: bool = False,
 ) -> list[ScoredItem]:
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[ScoredItem | None] = [None] * len(items)
 
     def generate_indexed_post(index: int, scored_item: ScoredItem) -> tuple[int, ScoredItem]:
         if scored_item.format_selected not in {"post", "carousel_post"}:
+            return index, scored_item
+        if scored_item.format_selected == "carousel_post" and not generate_carousel_content:
             return index, scored_item
         completed = generate_post_content(
             scored_item,
@@ -474,9 +477,40 @@ def build_post_context(scored_item: ScoredItem) -> dict[str, Any]:
     }
 
 
+def _leading_caption_marker(text: str) -> tuple[str | None, str]:
+    stripped = text.lstrip()
+    for marker in CAPTION_BULLET_MARKERS:
+        if stripped.startswith(marker):
+            remainder = stripped[len(marker) :].lstrip()
+            return marker, remainder
+    return None, stripped
+
+
+def _split_dense_caption_body(body: str, *, target_points: int = 4) -> str:
+    """Turn a single long caption paragraph into 3-5 Instagram bullet blocks."""
+    first_marker, remainder = _leading_caption_marker(body)
+    sentences = [part.strip() for part in re.split(r"(?<=[\.۔!\?])\s+", remainder) if part.strip()]
+    if len(sentences) <= 1:
+        return body
+
+    chunk_size = max(1, (len(sentences) + target_points - 1) // target_points)
+    chunks: list[str] = []
+    for index in range(0, len(sentences), chunk_size):
+        chunk = " ".join(sentences[index : index + chunk_size]).strip()
+        if chunk:
+            chunks.append(chunk)
+
+    point_markers = ["📌", "✅", "🗓️", "📍", "🔎"]
+    lines: list[str] = []
+    for index, chunk in enumerate(chunks):
+        marker = first_marker if index == 0 and first_marker else point_markers[min(index, len(point_markers) - 1)]
+        lines.append(f"{marker} {chunk}")
+    return "\n\n".join(lines)
+
+
 def normalize_caption_fa(caption: str) -> str:
     """Ensure blank lines between Instagram caption bullet blocks and before hashtags."""
-    text = caption.strip()
+    text = caption.strip().replace("\\n\\n", "\n\n").replace("\\n", "\n")
     if not text:
         return text
 
@@ -490,6 +524,11 @@ def normalize_caption_fa(caption: str) -> str:
 
     for marker in CAPTION_BULLET_MARKERS:
         body = re.sub(rf"(?<!\n)\s*({re.escape(marker)})", r"\n\n\1", body)
+
+    body = re.sub(r"\n{3,}", "\n\n", body).strip()
+    bullet_count = sum(body.count(marker) for marker in CAPTION_BULLET_MARKERS)
+    if bullet_count <= 1 and len(body) > 180:
+        body = _split_dense_caption_body(body)
 
     body = re.sub(r"\n{3,}", "\n\n", body).strip()
     if hashtags:

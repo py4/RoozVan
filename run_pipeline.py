@@ -112,6 +112,11 @@ def main() -> int:
         help="Disable extra ranking points for recently published RSS items.",
     )
     parser.add_argument(
+        "--no-feel-good-boost",
+        action="store_true",
+        help="Disable extra ranking points for uplifting local community/lifestyle stories.",
+    )
+    parser.add_argument(
         "--generate-images",
         action="store_true",
         help="Generate post/carousel/story images during the pipeline (expensive; default is text-only for HTML review).",
@@ -120,6 +125,11 @@ def main() -> int:
         "--generate-story-images",
         action="store_true",
         help="Generate story images (implies image generation for stories; use with --generate-images or alone).",
+    )
+    parser.add_argument(
+        "--generate-carousel-content",
+        action="store_true",
+        help="Generate carousel slide plans and captions during the pipeline (slow; off by default for HTML review).",
     )
     parser.add_argument(
         "--skip-post-text",
@@ -189,8 +199,10 @@ def main() -> int:
         selection_limit=args.selection_limit,
         minimum_score=args.minimum_score,
         recency_boost_enabled=not args.no_recency_boost,
+        feel_good_boost_enabled=not args.no_feel_good_boost,
         generate_story_images=args.generate_story_images or args.generate_images,
         generate_post_content=not args.skip_post_text and not args.skip_post_content,
+        generate_carousel_content=args.generate_carousel_content,
         generate_post_images=args.generate_images,
         story_image_output_dir=Path(args.story_image_output_dir),
         post_image_output_dir=Path(args.post_image_output_dir),
@@ -275,8 +287,10 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "selection_limit": config.selection_limit,
             "minimum_score": config.minimum_score,
             "recency_boost_enabled": config.recency_boost_enabled,
+            "feel_good_boost_enabled": config.feel_good_boost_enabled,
             "generate_story_images": config.generate_story_images,
             "generate_post_content": config.generate_post_content,
+            "generate_carousel_content": config.generate_carousel_content,
             "generate_post_images": config.generate_post_images,
             "story_image_output_dir": str(config.story_image_output_dir),
             "post_image_output_dir": str(config.post_image_output_dir),
@@ -290,6 +304,13 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
         print(
             "Images were not generated. Review index.html, then run:\n"
             f"  python3 generate_selected_images.py --dump-dir {dump_dir}",
+            file=sys.stderr,
+        )
+    if not config.generate_carousel_content:
+        print(
+            "Carousel captions/slides were skipped for speed. Posts and stories still have text where applicable.\n"
+            f"  To generate carousel content: run_pipeline.py --generate-carousel-content\n"
+            f"  Or generate carousel images later after adding slides manually.",
             file=sys.stderr,
         )
 
@@ -539,15 +560,17 @@ def render_instagram_row(dump_dir: Path, item) -> str:
         preview = f'<div class="phone story">{media}</div>'
     elif is_carousel:
         slide_text = render_carousel_slide_text(item.evaluation.get("carousel_post"))
+        carousel_note = render_carousel_review_note(item, caption, slide_text)
         preview = f"""
         <div class="carousel">
           <div class="carousel-count">{carousel_count_label(image_paths, item.evaluation.get("carousel_post"))}</div>
           <div class="carousel-track">{media}</div>
           {slide_text}
+          {carousel_note}
           <div class="phone post">
             <div class="ig-header"><div class="avatar"></div><div>roozvan.ca</div></div>
             <div class="ig-actions">♡ ◌ ↗</div>
-            <div class="caption"><strong>roozvan.ca</strong> {caption}</div>
+            <div class="caption"><strong>roozvan.ca</strong> {caption or '<em>Caption not generated yet</em>'}</div>
           </div>
         </div>
         """
@@ -589,7 +612,20 @@ def carousel_count_label(image_paths: list[str] | None, carousel_post: dict | No
     slides = (carousel_post or {}).get("slides") or []
     if slides:
         return f"{len(slides)} slides · text preview (images not generated yet)"
-    return "carousel · images not generated yet"
+    return "carousel · caption skipped for review (use --generate-carousel-content)"
+
+
+def render_carousel_review_note(item, caption: str, slide_text: str) -> str:
+    if caption or slide_text:
+        return ""
+    angle = html.escape(str(item.evaluation.get("persian_angle") or ""))
+    return (
+        '<div class="slide-text-list">'
+        '<div class="slide-text"><strong>Review</strong>'
+        "<div>Carousel caption/slides skipped in this pipeline run for speed.</div>"
+        f'<div class="slide-body">{angle or "Use --generate-carousel-content on the next run, or add slides before generating images."}</div>'
+        "</div></div>"
+    )
 
 
 def render_carousel_slide_text(carousel_post: dict | None) -> str:

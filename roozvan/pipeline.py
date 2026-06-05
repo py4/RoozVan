@@ -52,8 +52,10 @@ class PipelineConfig:
     selection_limit: int = 20
     minimum_score: float = 12
     recency_boost_enabled: bool = True
+    feel_good_boost_enabled: bool = True
     generate_story_images: bool = False
     generate_post_content: bool = True
+    generate_carousel_content: bool = False
     generate_post_images: bool = False
     story_image_output_dir: Path = Path("generated_story_images")
     post_image_output_dir: Path = Path("generated_post_images")
@@ -119,6 +121,7 @@ class EditorialScoringStage:
             max_tokens=config.max_tokens,
             workers=config.workers,
             recency_boost_enabled=config.recency_boost_enabled,
+            feel_good_boost_enabled=config.feel_good_boost_enabled,
         )
         return result
 
@@ -225,6 +228,7 @@ class PostContentGenerationStage:
             apply_logo_overlay_enabled=config.apply_logo_overlay,
             logo_path=config.logo_path,
             generate_images=config.generate_post_images,
+            generate_carousel_content=config.generate_carousel_content,
         )
         return result
 
@@ -289,6 +293,7 @@ class VisualContentGenerationStage:
                     apply_logo_overlay_enabled=config.apply_logo_overlay,
                     logo_path=config.logo_path,
                     generate_images=config.generate_post_images,
+                    generate_carousel_content=config.generate_carousel_content,
                 )
             elif config.generate_post_images:
                 post_items = generate_post_images_for_scored_items(
