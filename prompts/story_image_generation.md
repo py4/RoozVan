@@ -3,9 +3,16 @@ Generate one polished, professional 9:16 Persian Instagram Story image for RoozV
 The image model MUST natively render the Persian text directly inside the image.
 
 ### TEXT STRUCTURE & CONTENT (RIGHT-TO-LEFT)
-Turn the provided article into a concise, high-value local Story. Do not translate word-for-word. Synthesize what matters for Persian speakers in Vancouver using 25-45 Persian words total. No paragraphs, no repetitive sentences, and no duplicate headings.
+Turn the provided article into a concise, high-value local Story. Do not translate word-for-word. Use editorial judgment to decide what the image must communicate on its own, assuming there may be no caption, link, or source article shown with it.
 
-If the article includes a vivid concrete detail that explains why the news matters, include a tasteful summarized version of it. Do not over-sanitize important context, but avoid gratuitous shock language or tabloid phrasing.
+Before writing the image text, apply this internal editorial test:
+- If a viewer only sees this Story image, what is the one thing they must understand?
+- What concrete detail would make the Story more useful, saveable, or shareable for Persian speakers in Vancouver?
+- Which details are lower priority and can be omitted without making the Story vague or misleading?
+
+Include the details that pass that test. Omit details that add clutter, repeat the same idea, or are less important than the main takeaway. Use roughly 25-55 Persian words total when the story is simple, but allow denser text only when concrete details are the story's main value. No paragraphs, no repetitive sentences, and no duplicate headings.
+
+If the article includes concrete details that explain why the news matters, include the most useful summarized version of them. Do not force every date, number, location, or name into the image; choose the details that best carry the story. Do not over-sanitize important context, but avoid gratuitous shock language or tabloid phrasing.
 
 Render exactly four distinct text elements:
 1. Category Label (Upper-Right): Use a highly specific, short category tag. Never use generic labels like "خبر مهم".
