@@ -51,6 +51,50 @@ HIGH_PRIORITY_CATEGORIES = {
     "money_tax",
     "healthcare",
 }
+# Evergreen Instagram growth topics — save/DM/share more than read-once headlines.
+EVERGREEN_GROWTH_CATEGORIES = {
+    "immigration",
+    "housing",
+    "money_tax",
+    "healthcare",
+    "government_policy",
+    "transit",
+}
+EVERGREEN_UTILITY_KEYWORDS = (
+    "msp",
+    "medical services plan",
+    "renter",
+    "rental",
+    "tenancy",
+    "tenant",
+    "cra",
+    "canada revenue",
+    "newcomer",
+    "immigrant",
+    "immigration",
+    "ircc",
+    "permanent resident",
+    "pr card",
+    "grocery",
+    "groceries",
+    "cheapest",
+    "icbc",
+    "insurance corporation",
+    "transit",
+    "translink",
+    "compass card",
+    "camping",
+    "fishing",
+    "travel",
+    "healthcare",
+    "health care",
+    "tax",
+    "taxes",
+    "bylaw",
+    "hidden law",
+)
+# Headline-only recency: cap RSS age boost unless the story is utility- or alert-worthy.
+RECENCY_LIMITED_MAX_BOOST = 1.0
 FYI_STORY_CATEGORIES = {
     "community_event",
     "lifestyle",
@@ -106,6 +150,104 @@ RECENCY_BOOST_TIERS_HOURS = (
     (24, 3.0),
     (48, 2.0),
     (72, 1.0),
+)
+# Extra overall_score for uplifting local stories — RoozVan should not feel like crisis-only news.
+FEEL_GOOD_BOOST = 3.0
+FEEL_GOOD_CATEGORIES = {
+    "community_event",
+    "lifestyle",
+    "local_business",
+}
+# Categories that are usually stress/cost news unless the headline is clearly uplifting.
+FEEL_GOOD_EXCLUDED_CATEGORIES = {
+    "crime_safety",
+    "urgent_alert",
+    "money_tax",
+    "government_policy",
+    "healthcare",
+    "immigration",
+    "housing",
+}
+FEEL_GOOD_KEYWORDS = (
+    "free",
+    "celebrat",
+    "festival",
+    "fun",
+    "fun things",
+    "joy",
+    "amazing",
+    "beloved",
+    "iconic",
+    "heartwarming",
+    "inspiring",
+    "volunteer",
+    "donat",
+    "charity",
+    "pride",
+    "family",
+    "all-ages",
+    "all ages",
+    "kids",
+    "teen",
+    "summer",
+    "watch party",
+    "launch",
+    "launches",
+    "returns",
+    "coming back",
+    "giveaway",
+    "opening",
+    "opens",
+    "anniversary",
+    "limited-edition",
+    "souvenir",
+    "membership",
+    "things to do",
+    "weekend",
+    "street party",
+    "block party",
+    "food truck",
+    "art",
+    "theatre",
+    "theater",
+    "music",
+    "dance",
+    "parade",
+)
+NEGATIVE_TONE_KEYWORDS = (
+    "death",
+    "dead",
+    "killed",
+    "murder",
+    "assault",
+    "harass",
+    "crash",
+    "collision",
+    "layoff",
+    "closure",
+    "closes",
+    "closing",
+    "shut down",
+    "shuts down",
+    "lament",
+    "fraud",
+    "scam",
+    "sanction",
+    "victim",
+    "missing person",
+    "arrested",
+    "charged with",
+    "lawsuit",
+    "outrage",
+    "protest against",
+    "urine",
+    "feces",
+    "overdose",
+    "shooting",
+    "stabbing",
+    "robbery",
+    "homeless encampment",
+    "banned from",
 )
 
 DIRECT_IMPACT_KEYWORDS = (
@@ -176,8 +318,8 @@ def calculate_overall_score(score: dict[str, Any]) -> float:
         + 1.3 * score["local_relevance"]
         + 1.2 * score["immigrant_relevance"]
         + 1.1 * score["actionability"]
-        + 1.0 * score["urgency"]
-        + 1.0 * score["share_save_potential"]
+        + 0.85 * score["urgency"]
+        + 1.4 * score["share_save_potential"]
         + 0.8 * score["trustworthiness"]
         + 0.5 * score["originality"]
         - 1.5 * score["risk"],
@@ -236,6 +378,7 @@ def normalize_evaluation(
     item: NewsItem | dict[str, Any] | None = None,
     *,
     recency_boost_enabled: bool = True,
+    feel_good_boost_enabled: bool = True,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     normalized = dict(evaluation)
@@ -258,6 +401,7 @@ def normalize_evaluation(
     age_hours = item_age_hours(item, now=now)
     recency_boost, recency_reason = recency_score_adjustment(
         item,
+        score=normalized,
         enabled=recency_boost_enabled,
         now=now,
     )
@@ -267,7 +411,19 @@ def normalize_evaluation(
     if recency_reason:
         normalized["recency_boost_reason"] = recency_reason
 
-    normalized["overall_score"] = round(normalized["base_score"] + adjustment + recency_boost, 2)
+    feel_good_boost, feel_good_reason = feel_good_score_adjustment(
+        normalized,
+        item,
+        enabled=feel_good_boost_enabled,
+    )
+    normalized["feel_good_boost"] = feel_good_boost
+    if feel_good_reason:
+        normalized["feel_good_boost_reason"] = feel_good_reason
+
+    normalized["overall_score"] = round(
+        normalized["base_score"] + adjustment + recency_boost + feel_good_boost,
+        2,
+    )
     normalized["selection_gate_passed"] = passes_selection_gate(normalized, item)
     normalized["selection_gate_reasons"] = selection_gate_reasons(normalized, item)
     return normalized
@@ -299,9 +455,18 @@ def item_age_hours(item: NewsItem | dict[str, Any] | None, *, now: datetime | No
     return max(0.0, age_seconds / 3600)
 
 
+def qualifies_for_full_recency_boost(score: dict[str, Any]) -> bool:
+    if score["share_save_potential"] >= 3 or score["practical_usefulness"] >= 4:
+        return True
+    if score["urgency"] >= 4 and score["actionability"] >= 4:
+        return True
+    return False
+
+
 def recency_score_adjustment(
     item: NewsItem | dict[str, Any] | None,
     *,
+    score: dict[str, Any] | None = None,
     enabled: bool = True,
     now: datetime | None = None,
 ) -> tuple[float, str | None]:
@@ -310,9 +475,71 @@ def recency_score_adjustment(
     age_hours = item_age_hours(item, now=now)
     if age_hours is None:
         return 0.0, None
-    for max_hours, boost in RECENCY_BOOST_TIERS_HOURS:
+    for max_hours, tier_boost in RECENCY_BOOST_TIERS_HOURS:
         if age_hours <= max_hours:
-            return boost, f"published_within_{max_hours}h"
+            boost = tier_boost
+            reason = f"published_within_{max_hours}h"
+            if score is not None and not qualifies_for_full_recency_boost(score):
+                if boost > RECENCY_LIMITED_MAX_BOOST:
+                    boost = RECENCY_LIMITED_MAX_BOOST
+                    reason = f"{reason}_utility_gated"
+            return boost, reason
+    return 0.0, None
+
+
+def has_negative_tone_signal(text: str) -> bool:
+    return contains_keyword(text, NEGATIVE_TONE_KEYWORDS)
+
+
+def has_feel_good_signal(text: str) -> bool:
+    return contains_keyword(text, FEEL_GOOD_KEYWORDS)
+
+
+def is_feel_good_local_story(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> bool:
+    """Uplifting Metro Vancouver stories worth balancing against heavy news."""
+    text = item_text(item).lower()
+    if has_negative_tone_signal(text):
+        return False
+    if has_direct_impact_signal(text) and not has_feel_good_signal(text):
+        return False
+    if score["category"] in FEEL_GOOD_EXCLUDED_CATEGORIES and not has_feel_good_signal(text):
+        return False
+    if score.get("risk", 0) >= 2:
+        return False
+    if score["trustworthiness"] < 4 or score["local_relevance"] < 2:
+        return False
+    # Breaking crisis vibe — not feel-good even if local.
+    if score["urgency"] >= 4 and score["actionability"] <= 2:
+        return False
+
+    if has_feel_good_signal(text):
+        return True
+    if (
+        score["category"] in FEEL_GOOD_CATEGORIES
+        and score["share_save_potential"] >= 3
+        and score["urgency"] <= 3
+    ):
+        return True
+    if (
+        is_lifestyle_or_outdoor_signal(item)
+        and has_feel_good_signal(text)
+        and score["share_save_potential"] >= 3
+        and score["urgency"] <= 3
+    ):
+        return True
+    return False
+
+
+def feel_good_score_adjustment(
+    score: dict[str, Any],
+    item: NewsItem | dict[str, Any] | None,
+    *,
+    enabled: bool = True,
+) -> tuple[float, str | None]:
+    if not enabled:
+        return 0.0, None
+    if is_feel_good_local_story(score, item):
+        return FEEL_GOOD_BOOST, "feel_good_local_story"
     return 0.0, None
 
 
@@ -373,6 +600,10 @@ def editorial_adjustment(
         adjustment += 2
         reasons.append("outdoor_lifestyle_or_local_experience_relevance")
 
+    if is_evergreen_utility_story(score, item):
+        adjustment += 2
+        reasons.append("evergreen_utility_growth_topic")
+
     if score["category"] == "crime_safety" and score["actionability"] <= 1:
         adjustment -= 4
         reasons.append("crime_without_actionable_safety_guidance")
@@ -429,6 +660,17 @@ def outside_metro_signal(title: str) -> bool:
     return contains_keyword(title, OUTSIDE_METRO_KEYWORDS)
 
 
+def is_evergreen_utility_story(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> bool:
+    text = item_text(item).lower()
+    if score["category"] in EVERGREEN_GROWTH_CATEGORIES and score["practical_usefulness"] >= 2:
+        return True
+    return (
+        contains_keyword(text, EVERGREEN_UTILITY_KEYWORDS)
+        and score["share_save_potential"] >= 2
+        and score["practical_usefulness"] >= 2
+    )
+
+
 def is_lifestyle_or_outdoor_signal(item: NewsItem | dict[str, Any] | None) -> bool:
     text = item_text(item).lower()
     return contains_keyword(text, LIFESTYLE_FYI_KEYWORDS)
@@ -466,8 +708,8 @@ def passes_selection_gate(score: dict[str, Any], item: NewsItem | dict[str, Any]
     return (
         score["practical_usefulness"] >= 2
         or score["actionability"] >= 2
-        or score["urgency"] >= 3
-        or score["share_save_potential"] >= 3
+        or score["share_save_potential"] >= 2
+        or passes_urgency_selection_gate(score)
         or score["category"] in HIGH_PRIORITY_CATEGORIES
         or (
             score["category"] == "government_policy"
@@ -475,6 +717,18 @@ def passes_selection_gate(score: dict[str, Any], item: NewsItem | dict[str, Any]
             and score["actionability"] >= 2
         )
     )
+
+
+def passes_urgency_selection_gate(score: dict[str, Any]) -> bool:
+    if score["urgency"] >= 4 and score["actionability"] >= 4:
+        return True
+    if score["urgency"] >= 3:
+        return (
+            score["share_save_potential"] >= 2
+            or score["practical_usefulness"] >= 3
+            or score["actionability"] >= 3
+        )
+    return False
 
 
 def selection_gate_reasons(score: dict[str, Any], item: NewsItem | dict[str, Any] | None = None) -> list[str]:
@@ -498,10 +752,10 @@ def selection_gate_reasons(score: dict[str, Any], item: NewsItem | dict[str, Any
         reasons.append("practical_usefulness_at_least_2")
     if score["actionability"] >= 2:
         reasons.append("actionability_at_least_2")
-    if score["urgency"] >= 3:
-        reasons.append("urgency_at_least_3")
-    if score["share_save_potential"] >= 3:
-        reasons.append("share_save_potential_at_least_3")
+    if score["share_save_potential"] >= 2:
+        reasons.append("share_save_potential_at_least_2")
+    if passes_urgency_selection_gate(score):
+        reasons.append("urgency_with_save_utility_or_alert")
     if score["category"] in HIGH_PRIORITY_CATEGORIES:
         reasons.append("high_priority_category")
     if (
@@ -522,6 +776,7 @@ def score_item(
     *,
     max_tokens: int,
     recency_boost_enabled: bool = True,
+    feel_good_boost_enabled: bool = True,
 ) -> dict[str, Any]:
     prompt = build_prompt(prompt_template, item)
     try:
@@ -544,6 +799,7 @@ def score_item(
         parse_json_object(raw_response),
         item,
         recency_boost_enabled=recency_boost_enabled,
+        feel_good_boost_enabled=feel_good_boost_enabled,
     )
 
 
@@ -559,6 +815,7 @@ def score_news_items(
     max_tokens: int,
     workers: int,
     recency_boost_enabled: bool = True,
+    feel_good_boost_enabled: bool = True,
 ) -> list[ScoredItem]:
     results = []
     if not items:
@@ -573,6 +830,7 @@ def score_news_items(
             item,
             max_tokens=max_tokens,
             recency_boost_enabled=recency_boost_enabled,
+            feel_good_boost_enabled=feel_good_boost_enabled,
         )
         return ScoredItem(
             source_index=index,
@@ -607,6 +865,7 @@ def score_items(
     max_tokens: int,
     workers: int,
     recency_boost_enabled: bool = True,
+    feel_good_boost_enabled: bool = True,
 ) -> list[dict[str, Any]]:
     news_items = [NewsItem.from_dict(item) for item in items]
     return [
@@ -618,6 +877,7 @@ def score_items(
             max_tokens=max_tokens,
             workers=workers,
             recency_boost_enabled=recency_boost_enabled,
+            feel_good_boost_enabled=feel_good_boost_enabled,
         )
     ]
 
