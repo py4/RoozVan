@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from roozvan.models import NewsItem
+from roozvan.vancouver_is_awesome import collect_vancouver_is_awesome_items, is_vancouver_is_awesome_source
 
 
 NS = {
@@ -182,7 +183,10 @@ def collect_news_items(sources_path: Path, timeout: int) -> list[NewsItem]:
     output = []
     for source in read_sources(sources_path):
         try:
-            output.extend(parse_feed(read_feed(source, timeout), source))
+            if is_vancouver_is_awesome_source(source):
+                output.extend(collect_vancouver_is_awesome_items(source, timeout))
+            else:
+                output.extend(parse_feed(read_feed(source, timeout), source))
         except (OSError, ET.ParseError, urllib.error.URLError) as exc:
             print(f"warning: failed to read {source}: {exc}", file=sys.stderr)
     return output
