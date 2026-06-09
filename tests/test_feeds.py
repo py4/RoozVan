@@ -1,5 +1,7 @@
-from roozvan.feeds import parse_feed
-from roozvan.models import ScoredItem
+from datetime import datetime, timezone
+
+from roozvan.feeds import filter_recent_items, item_published_at, parse_feed
+from roozvan.models import NewsItem, ScoredItem
 from roozvan.scoring import rank_scored_items
 
 
@@ -68,3 +70,31 @@ def test_global_news_items_can_be_ranked_after_scoring() -> None:
     ranked = rank_scored_items(scored)
 
     assert ranked[0].item.title == "Metro Vancouver enters Stage 3 water restrictions as snowpack melts a month early"
+
+
+def test_filter_recent_items_drops_dated_items_older_than_two_days() -> None:
+    now = datetime(2026, 6, 9, 12, 0, tzinfo=timezone.utc)
+    items = [
+        NewsItem("recent", None, "Tue, 09 Jun 2026 01:00:00 +0000", "https://example.com/recent", None),
+        NewsItem("borderline", None, "Sun, 07 Jun 2026 12:00:00 +0000", "https://example.com/borderline", None),
+        NewsItem("old", None, "Sun, 07 Jun 2026 11:59:59 +0000", "https://example.com/old", None),
+        NewsItem("missing date", None, None, "https://example.com/missing", None),
+        NewsItem("bad date", None, "not a date", "https://example.com/bad", None),
+        NewsItem("future", None, "Wed, 10 Jun 2026 01:00:00 +0000", "https://example.com/future", None),
+    ]
+
+    filtered = filter_recent_items(items, now=now)
+
+    assert [item.title for item in filtered] == [
+        "recent",
+        "borderline",
+        "missing date",
+        "bad date",
+        "future",
+    ]
+
+
+def test_item_published_at_supports_atom_iso_dates() -> None:
+    item = NewsItem("atom", None, "2026-06-09T01:02:03Z", "https://example.com/atom", None)
+
+    assert item_published_at(item) == datetime(2026, 6, 9, 1, 2, 3, tzinfo=timezone.utc)

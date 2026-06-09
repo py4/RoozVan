@@ -120,6 +120,7 @@ Entry points:
 - Reads feed URLs from `sources.txt` (one per line; `#` comments ignored).
 - Supports HTTP(S) feeds and local XML files.
 - Extracts: title, description, date, article URL, image URL, source URL.
+- Drops items with a parseable date older than 2 days; items without a parseable date are kept.
 - Output: `list[NewsItem]`.
 
 ### 2. Editorial scoring (`scoring.py`)

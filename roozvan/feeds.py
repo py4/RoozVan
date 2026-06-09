@@ -7,6 +7,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Iterable
@@ -23,6 +25,7 @@ NS = {
     "media": "http://search.yahoo.com/mrss/",
     "itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
 }
+DEFAULT_MAX_ITEM_AGE_DAYS = 2
 
 
 class FirstImageParser(HTMLParser):
@@ -208,10 +211,52 @@ def parse_feed(data: bytes, source: str) -> list[NewsItem]:
     return results
 
 
+def item_published_at(item: NewsItem) -> datetime | None:
+    if not item.date:
+        return None
+    raw_date = item.date.strip()
+    try:
+        published = parsedate_to_datetime(raw_date)
+    except (TypeError, ValueError, IndexError, AttributeError):
+        try:
+            published = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if published.tzinfo is None:
+        published = published.replace(tzinfo=timezone.utc)
+    return published.astimezone(timezone.utc)
+
+
+def is_recent_enough(
+    item: NewsItem,
+    *,
+    max_age_days: int | None = DEFAULT_MAX_ITEM_AGE_DAYS,
+    now: datetime | None = None,
+) -> bool:
+    if max_age_days is None:
+        return True
+    published_at = item_published_at(item)
+    if published_at is None:
+        return True
+    reference = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    cutoff = reference - timedelta(days=max_age_days)
+    return published_at >= cutoff
+
+
+def filter_recent_items(
+    items: list[NewsItem],
+    *,
+    max_age_days: int | None = DEFAULT_MAX_ITEM_AGE_DAYS,
+    now: datetime | None = None,
+) -> list[NewsItem]:
+    return [item for item in items if is_recent_enough(item, max_age_days=max_age_days, now=now)]
+
+
 def collect_news_items(
     sources_path: Path,
     timeout: int,
     *,
+    max_item_age_days: int | None = DEFAULT_MAX_ITEM_AGE_DAYS,
     errors: list[str] | None = None,
     progress_log: ProgressLogger | None = None,
 ) -> list[NewsItem]:
@@ -223,8 +268,16 @@ def collect_news_items(
                 parsed = collect_vancouver_is_awesome_items(source, timeout)
             else:
                 parsed = parse_feed(read_feed(source, timeout), source)
-            output.extend(parsed)
-            log_progress(progress_log, f"extract: {source} -> {len(parsed)} items")
+            recent = filter_recent_items(parsed, max_age_days=max_item_age_days)
+            output.extend(recent)
+            skipped = len(parsed) - len(recent)
+            if skipped:
+                log_progress(
+                    progress_log,
+                    f"extract: {source} -> {len(recent)} items ({skipped} older than {max_item_age_days}d skipped)",
+                )
+            else:
+                log_progress(progress_log, f"extract: {source} -> {len(recent)} items")
         except (OSError, ET.ParseError, urllib.error.URLError) as exc:
             message = f"failed to read {source}: {exc}"
             log_progress(progress_log, f"extract: failed {source} — {exc}")
