@@ -1,3 +1,4 @@
 https://www.cbc.ca/webfeed/rss/rss-canada-britishcolumbia
 https://dailyhive.com/feed/vancouver
 https://www.vancouverisawesome.com/local-news?page=PAGE_NUMBER
+https://globalnews.ca/bc/feed/
