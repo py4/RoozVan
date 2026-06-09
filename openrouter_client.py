@@ -17,6 +17,10 @@ class OpenRouterError(RuntimeError):
     """Raised when OpenRouter returns an error or an unexpected response."""
 
 
+DEFAULT_TEXT_MODEL = "moonshotai/kimi-k2.6"
+# OpenRouter provider slug for Weights & Biases (supports response_format on Kimi K2.6).
+DEFAULT_KIMI_PROVIDER = "WandB"
+
 RETRYABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
@@ -49,7 +53,7 @@ def load_default_env_files() -> None:
 @dataclass
 class OpenRouterClient:
     api_key: str | None = None
-    model: str = "openrouter/owl-alpha"
+    model: str = DEFAULT_TEXT_MODEL
     base_url: str = "https://openrouter.ai/api/v1/chat/completions"
     timeout: int = 60
     site_url: str | None = None
@@ -87,6 +91,7 @@ class OpenRouterClient:
             body["max_tokens"] = max_tokens
         if extra_body:
             body.update(extra_body)
+        body = apply_model_routing_defaults(body)
 
         response = self._post(body)
         try:
@@ -148,6 +153,35 @@ class OpenRouterClient:
             return parsed
 
         raise OpenRouterError("OpenRouter retry loop ended unexpectedly.")
+
+
+def is_kimi_model(model: str | None) -> bool:
+    normalized = (model or "").strip().lower()
+    return normalized.startswith("moonshotai/kimi") or normalized.startswith("kimi-")
+
+
+def kimi_provider_slug() -> str:
+    return os.getenv("OPENROUTER_KIMI_PROVIDER", DEFAULT_KIMI_PROVIDER).strip() or DEFAULT_KIMI_PROVIDER
+
+
+def apply_model_routing_defaults(body: dict[str, Any]) -> dict[str, Any]:
+    """Pin Kimi text requests to a provider that supports structured output."""
+    if not is_kimi_model(str(body.get("model") or "")):
+        return body
+
+    merged = dict(body)
+    provider = dict(merged.get("provider") or {})
+    if not provider.get("only") and not provider.get("order"):
+        provider["only"] = [kimi_provider_slug()]
+        provider.setdefault("allow_fallbacks", False)
+    merged["provider"] = provider
+
+    reasoning = merged.get("reasoning")
+    if reasoning is None:
+        merged["reasoning"] = {"effort": "none"}
+    elif isinstance(reasoning, dict) and "effort" not in reasoning:
+        merged["reasoning"] = {**reasoning, "effort": "none"}
+    return merged
 
 
 def is_retryable_status(status_code: int) -> bool:

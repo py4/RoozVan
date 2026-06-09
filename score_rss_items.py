@@ -46,7 +46,7 @@ def main() -> int:
     parser.add_argument("--prompt", default="scoring_prompt.md", help="Editorial scoring prompt file.")
     parser.add_argument(
         "--model",
-        default="openrouter/owl-alpha",
+        default="moonshotai/kimi-k2.6",
         help="OpenRouter model name.",
     )
     parser.add_argument("--timeout", type=int, default=60, help="Network timeout in seconds.")

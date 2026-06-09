@@ -12,6 +12,8 @@ from dataclasses import dataclass, replace
 from html.parser import HTMLParser
 
 from roozvan.models import NewsItem
+from roozvan.progress import ProgressLogger, log_progress, short_title
+from roozvan.progress import ProgressLogger, log_progress, short_title
 
 
 MIN_READABLE_CHARS = 500
@@ -117,17 +119,27 @@ def fetch_and_extract_article(url: str, timeout: int, max_chars: int | None = No
     return extraction
 
 
-def enrich_items_with_articles(items: list[NewsItem], timeout: int, max_chars: int | None = None) -> list[NewsItem]:
+def enrich_items_with_articles(
+    items: list[NewsItem],
+    timeout: int,
+    max_chars: int | None = None,
+    *,
+    progress_log: ProgressLogger | None = None,
+) -> list[NewsItem]:
     enriched = []
-    for item in items:
+    total = len(items)
+    for index, item in enumerate(items, start=1):
         if not item.url:
             enriched.append(item)
+            log_progress(progress_log, f"article: {index}/{total} skipped (no URL)")
             continue
 
+        log_progress(progress_log, f"article: {index}/{total} fetching — {short_title(item.title)}")
         try:
             extraction = fetch_and_extract_article(item.url, timeout, max_chars=max_chars)
         except (OSError, urllib.error.URLError, ValueError) as exc:
             print(f"warning: failed to fetch article {item.url}: {exc}", file=sys.stderr)
+            log_progress(progress_log, f"article: {index}/{total} failed — {short_title(item.title)}")
             enriched.append(replace(item, article_readable_without_js=False))
             continue
 
@@ -138,6 +150,8 @@ def enrich_items_with_articles(items: list[NewsItem], timeout: int, max_chars: i
                 article_readable_without_js=extraction.readable_without_js,
             )
         )
+        readable = "readable" if extraction.readable_without_js else "partial"
+        log_progress(progress_log, f"article: {index}/{total} {readable} — {short_title(item.title)}")
     return enriched
 
 

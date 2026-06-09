@@ -10,6 +10,7 @@ from typing import Any
 
 from openrouter_client import OpenRouterClient, OpenRouterError
 from roozvan.models import ScoredItem
+from roozvan.progress import ProgressLogger, log_progress, short_title
 from roozvan.scoring import is_unsupported_structured_output_error, parse_json_object
 
 
@@ -112,10 +113,14 @@ def select_formats_for_scored_items(
     *,
     max_tokens: int,
     workers: int,
+    errors: list[str] | None = None,
+    progress_log: ProgressLogger | None = None,
 ) -> list[ScoredItem]:
     if not items:
         return []
 
+    total = len(items)
+    completed = 0
     results: list[ScoredItem | None] = [None] * len(items)
     worker_count = max(1, min(workers, len(items)))
 
@@ -131,22 +136,36 @@ def select_formats_for_scored_items(
 
         for future in concurrent.futures.as_completed(futures):
             index, scored_item = futures[future]
+            completed += 1
             try:
                 result_index, selected_item = future.result()
                 results[result_index] = selected_item
-            except (OpenRouterError, ValueError, json.JSONDecodeError) as exc:
-                print(
-                    f"warning: failed to select format for item {scored_item.source_index} "
-                    f"({scored_item.item.title}): {exc}",
-                    file=sys.stderr,
+                log_progress(
+                    progress_log,
+                    f"format: {completed}/{total} {selected_item.format_selected} — "
+                    f"{short_title(scored_item.item.title)}",
                 )
+            except (OpenRouterError, ValueError, json.JSONDecodeError) as exc:
+                message = (
+                    f"failed to select format for item {scored_item.source_index} "
+                    f"({scored_item.item.title}): {exc}"
+                )
+                log_progress(progress_log, f"format: {completed}/{total} failed — {short_title(scored_item.item.title)}")
+                if errors is not None:
+                    errors.append(message)
+                else:
+                    print(f"warning: {message}", file=sys.stderr)
                 results[index] = scored_item
             except Exception as exc:
-                print(
-                    f"warning: unexpected failure selecting format for item {scored_item.source_index} "
-                    f"({scored_item.item.title}): {exc}",
-                    file=sys.stderr,
+                message = (
+                    f"unexpected failure selecting format for item {scored_item.source_index} "
+                    f"({scored_item.item.title}): {exc}"
                 )
+                log_progress(progress_log, f"format: {completed}/{total} failed — {short_title(scored_item.item.title)}")
+                if errors is not None:
+                    errors.append(message)
+                else:
+                    print(f"warning: {message}", file=sys.stderr)
                 results[index] = scored_item
 
     return [item for item in results if item is not None]

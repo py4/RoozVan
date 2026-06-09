@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from roozvan.models import NewsItem
+from roozvan.progress import ProgressLogger, log_progress
 from roozvan.vancouver_is_awesome import collect_vancouver_is_awesome_items, is_vancouver_is_awesome_source
 
 
@@ -153,8 +154,30 @@ def rss_items(root: ET.Element) -> list[ET.Element]:
     return find_children(root, "item")
 
 
+def entry_date(item: ET.Element) -> str | None:
+    return child_text(item, ["pubDate", "date", "dc:date", "atom:published", "atom:updated"])
+
+
 def atom_items(root: ET.Element) -> list[ET.Element]:
-    return root.findall("atom:entry", NS)
+    """Return article entries, including nested Google PCN rundown items."""
+    direct = root.findall("atom:entry", NS)
+    nested = [
+        entry
+        for entry in root.iter()
+        if local_name(entry.tag) == "entry" and child_text(entry, ["title", "atom:title"])
+    ]
+    if len(nested) > len(direct):
+        return nested
+    return [entry for entry in direct if child_text(entry, ["title", "atom:title"])] or direct
+
+
+def wrapper_entry_date(root: ET.Element, item: ET.Element) -> str | None:
+    for wrapper in root.findall("atom:entry", NS):
+        if item in wrapper.iter():
+            date = entry_date(wrapper)
+            if date:
+                return date
+    return entry_date(root)
 
 
 def parse_feed(data: bytes, source: str) -> list[NewsItem]:
@@ -165,11 +188,17 @@ def parse_feed(data: bytes, source: str) -> list[NewsItem]:
 
     for item in items:
         post_url = child_text(item, ["link"]) or atom_link(item)
+        title = child_text(item, ["title", "atom:title"])
+        if not title or not post_url:
+            continue
+        date = entry_date(item)
+        if is_atom and not date:
+            date = wrapper_entry_date(root, item)
         results.append(
             NewsItem(
-                title=child_text(item, ["title", "atom:title"]),
+                title=title,
                 description=child_text(item, ["description", "summary", "atom:summary", "content:encoded", "atom:content"]),
-                date=child_text(item, ["pubDate", "date", "dc:date", "atom:published", "atom:updated"]),
+                date=date,
                 url=post_url,
                 image_url=image_url(item, post_url or source),
                 source_url=source,
@@ -179,16 +208,30 @@ def parse_feed(data: bytes, source: str) -> list[NewsItem]:
     return results
 
 
-def collect_news_items(sources_path: Path, timeout: int) -> list[NewsItem]:
+def collect_news_items(
+    sources_path: Path,
+    timeout: int,
+    *,
+    errors: list[str] | None = None,
+    progress_log: ProgressLogger | None = None,
+) -> list[NewsItem]:
     output = []
     for source in read_sources(sources_path):
+        log_progress(progress_log, f"extract: fetching {source}")
         try:
             if is_vancouver_is_awesome_source(source):
-                output.extend(collect_vancouver_is_awesome_items(source, timeout))
+                parsed = collect_vancouver_is_awesome_items(source, timeout)
             else:
-                output.extend(parse_feed(read_feed(source, timeout), source))
+                parsed = parse_feed(read_feed(source, timeout), source)
+            output.extend(parsed)
+            log_progress(progress_log, f"extract: {source} -> {len(parsed)} items")
         except (OSError, ET.ParseError, urllib.error.URLError) as exc:
-            print(f"warning: failed to read {source}: {exc}", file=sys.stderr)
+            message = f"failed to read {source}: {exc}"
+            log_progress(progress_log, f"extract: failed {source} — {exc}")
+            if errors is not None:
+                errors.append(message)
+            else:
+                print(f"warning: {message}", file=sys.stderr)
     return output
 
 

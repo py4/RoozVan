@@ -12,6 +12,7 @@ from typing import Any
 
 from openrouter_client import OpenRouterClient, OpenRouterError
 from roozvan.models import NewsItem, ScoredItem
+from roozvan.progress import ProgressLogger, log_progress, short_title
 
 
 REQUIRED_NUMERIC_FIELDS = (
@@ -816,11 +817,15 @@ def score_news_items(
     workers: int,
     recency_boost_enabled: bool = True,
     feel_good_boost_enabled: bool = True,
+    errors: list[str] | None = None,
+    progress_log: ProgressLogger | None = None,
 ) -> list[ScoredItem]:
     results = []
     if not items:
         return results
 
+    total = len(items)
+    completed = 0
     worker_count = max(1, min(workers, len(items)))
 
     def score_indexed_item(index: int, item: NewsItem) -> ScoredItem:
@@ -847,12 +852,28 @@ def score_news_items(
 
         for future in concurrent.futures.as_completed(futures):
             index, item = futures[future]
+            completed += 1
             try:
-                results.append(future.result())
+                scored = future.result()
+                results.append(scored)
+                log_progress(
+                    progress_log,
+                    f"score: {completed}/{total} [{scored.overall_score}] {short_title(item.title)}",
+                )
             except (OpenRouterError, ValueError, json.JSONDecodeError) as exc:
-                print(f"warning: failed to score item {index} ({item.title}): {exc}", file=sys.stderr)
+                message = f"failed to score item {index} ({item.title}): {exc}"
+                log_progress(progress_log, f"score: {completed}/{total} failed — {short_title(item.title)}")
+                if errors is not None:
+                    errors.append(message)
+                else:
+                    print(f"warning: {message}", file=sys.stderr)
             except Exception as exc:
-                print(f"warning: unexpected failure scoring item {index} ({item.title}): {exc}", file=sys.stderr)
+                message = f"unexpected failure scoring item {index} ({item.title}): {exc}"
+                log_progress(progress_log, f"score: {completed}/{total} failed — {short_title(item.title)}")
+                if errors is not None:
+                    errors.append(message)
+                else:
+                    print(f"warning: {message}", file=sys.stderr)
 
     return rank_scored_items(results)
 

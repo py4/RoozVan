@@ -9,13 +9,16 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
+from openrouter_client import DEFAULT_TEXT_MODEL
 from roozvan.pipeline import PipelineConfig, build_default_pipeline
 from roozvan.story_images import (
     DEFAULT_GEMINI_STORY_IMAGE_MODEL,
     DEFAULT_OPENROUTER_IMAGE_MAX_TOKENS,
     DEFAULT_STORY_IMAGE_MODEL,
+    DEFAULT_STORY_IMAGE_PROVIDER,
 )
 
 
@@ -24,9 +27,9 @@ def main() -> int:
     parser.add_argument("--sources", default="sources.txt", help="File containing RSS/Atom URLs or paths, one per line.")
     parser.add_argument("--prompt", default="scoring_prompt.md", help="Editorial scoring prompt file.")
     parser.add_argument(
-        "--format-instruction",
-        default="format_selection_instruction.md",
-        help="Instagram format selection instruction file.",
+        "--instagram-content-prompt",
+        default="prompts/instagram_content_generation.md",
+        help="Unified Instagram format + caption/slide text generation prompt.",
     )
     parser.add_argument(
         "--story-image-prompt",
@@ -50,10 +53,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--carousel-image-prompt",
-        default="prompts/carousel_image_generation.md",
+        default="prompts/carousel_image_background_generation.md",
         help="Carousel slide image generation prompt file.",
     )
-    parser.add_argument("--model", default="openrouter/owl-alpha", help="OpenRouter model name.")
+    parser.add_argument("--model", default=DEFAULT_TEXT_MODEL, help="OpenRouter model name.")
     parser.add_argument(
         "--story-image-model",
         default=DEFAULT_STORY_IMAGE_MODEL,
@@ -62,8 +65,8 @@ def main() -> int:
     parser.add_argument(
         "--story-image-provider",
         choices=("openrouter", "gemini"),
-        default="gemini",
-        help="Provider for story/post/carousel image generation (default: direct Gemini API).",
+        default=DEFAULT_STORY_IMAGE_PROVIDER,
+        help="Provider for story/post/carousel image generation (default: OpenRouter).",
     )
     parser.add_argument(
         "--gemini-story-image-model",
@@ -79,12 +82,6 @@ def main() -> int:
     )
     parser.add_argument("--max-items", type=int, default=None, help="Optional limit for scoring only the first N RSS items.")
     parser.add_argument("--max-tokens", type=int, default=600, help="Maximum output tokens for each LLM response.")
-    parser.add_argument(
-        "--format-max-tokens",
-        type=int,
-        default=80,
-        help="Maximum output tokens for each format selection LLM response.",
-    )
     parser.add_argument(
         "--story-image-max-tokens",
         type=int,
@@ -129,7 +126,7 @@ def main() -> int:
     parser.add_argument(
         "--generate-carousel-content",
         action="store_true",
-        help="Generate carousel slide plans and captions during the pipeline (slow; off by default for HTML review).",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--skip-post-text",
@@ -177,7 +174,7 @@ def main() -> int:
     config = PipelineConfig(
         sources_path=Path(args.sources),
         scoring_prompt_path=Path(args.prompt),
-        format_selection_instruction_path=Path(args.format_instruction),
+        instagram_content_prompt_path=Path(args.instagram_content_prompt),
         story_image_prompt_path=Path(args.story_image_prompt),
         post_image_prompt_path=Path(args.post_image_prompt),
         post_caption_prompt_path=Path(args.post_caption_prompt),
@@ -191,7 +188,6 @@ def main() -> int:
         story_image_timeout=args.story_image_timeout,
         max_items=args.max_items,
         max_tokens=args.max_tokens,
-        format_selection_max_tokens=args.format_max_tokens,
         story_image_max_tokens=args.story_image_max_tokens,
         post_caption_max_tokens=args.post_caption_max_tokens,
         post_image_max_tokens=args.post_image_max_tokens,
@@ -202,7 +198,6 @@ def main() -> int:
         feel_good_boost_enabled=not args.no_feel_good_boost,
         generate_story_images=args.generate_story_images or args.generate_images,
         generate_post_content=not args.skip_post_text and not args.skip_post_content,
-        generate_carousel_content=args.generate_carousel_content,
         generate_post_images=args.generate_images,
         story_image_output_dir=Path(args.story_image_output_dir),
         post_image_output_dir=Path(args.post_image_output_dir),
@@ -265,7 +260,7 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
         {
             "sources_path": str(config.sources_path),
             "scoring_prompt_path": str(config.scoring_prompt_path),
-            "format_selection_instruction_path": str(config.format_selection_instruction_path),
+            "instagram_content_prompt_path": str(config.instagram_content_prompt_path),
             "story_image_prompt_path": str(config.story_image_prompt_path),
             "post_image_prompt_path": str(config.post_image_prompt_path),
             "post_caption_prompt_path": str(config.post_caption_prompt_path),
@@ -279,7 +274,6 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "story_image_timeout": config.story_image_timeout,
             "max_items": config.max_items,
             "max_tokens": config.max_tokens,
-            "format_selection_max_tokens": config.format_selection_max_tokens,
             "story_image_max_tokens": config.story_image_max_tokens,
             "post_caption_max_tokens": config.post_caption_max_tokens,
             "post_image_max_tokens": config.post_image_max_tokens,
@@ -290,7 +284,6 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "feel_good_boost_enabled": config.feel_good_boost_enabled,
             "generate_story_images": config.generate_story_images,
             "generate_post_content": config.generate_post_content,
-            "generate_carousel_content": config.generate_carousel_content,
             "generate_post_images": config.generate_post_images,
             "story_image_output_dir": str(config.story_image_output_dir),
             "post_image_output_dir": str(config.post_image_output_dir),
@@ -298,19 +291,15 @@ def write_debug_dump(dump_dir: Path, result, config: PipelineConfig, total_elaps
             "apply_logo_overlay": config.apply_logo_overlay,
         },
     )
+    write_status_json(dump_dir, result, total_elapsed)
     write_html_report(dump_dir / "index.html", result.selected_items)
     print(f"Debug dump written to {dump_dir}", file=sys.stderr)
+    if result.errors:
+        print(f"Pipeline completed with {len(result.errors)} warning(s). See {dump_dir / 'status.json'}", file=sys.stderr)
     if not config.generate_post_images and not config.generate_story_images:
         print(
             "Images were not generated. Review index.html, then run:\n"
             f"  python3 generate_selected_images.py --dump-dir {dump_dir}",
-            file=sys.stderr,
-        )
-    if not config.generate_carousel_content:
-        print(
-            "Carousel captions/slides were skipped for speed. Posts and stories still have text where applicable.\n"
-            f"  To generate carousel content: run_pipeline.py --generate-carousel-content\n"
-            f"  Or generate carousel images later after adding slides manually.",
             file=sys.stderr,
         )
 
@@ -319,10 +308,53 @@ def write_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def write_status_json(dump_dir: Path, result, total_elapsed: float) -> None:
+    write_json(
+        dump_dir / "status.json",
+        build_pipeline_status(result, total_elapsed),
+    )
+
+
+def build_pipeline_status(result, total_elapsed: float) -> dict:
+    return {
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "extracted_count": len(result.items),
+        "scored_count": len(result.scored_items),
+        "deduped_count": len(result.deduped_items),
+        "selected_count": len(result.selected_items),
+        "error_count": len(result.errors),
+        "errors": result.errors[:50],
+        "elapsed_seconds": round(total_elapsed, 3),
+    }
+
+
+def has_pipeline_run(status: dict | None) -> bool:
+    return bool(status and status.get("completed_at"))
+
+
+def embed_json_in_html(value) -> str:
+    """Embed JSON in a script tag without breaking HTML or JSON.parse."""
+    return json.dumps(value, ensure_ascii=False).replace("</", "<\\/")
+
+
+def load_pipeline_status(dump_dir: Path) -> dict | None:
+    status_path = dump_dir / "status.json"
+    if not status_path.exists():
+        return None
+    try:
+        data = json.loads(status_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def write_html_report(path: Path, selected_items) -> None:
-    rows = "\n".join(render_instagram_row(path.parent, item) for item in selected_items)
+    dump_dir = path.parent
+    rows = "\n".join(render_instagram_row(dump_dir, item) for item in selected_items)
     if not rows:
-        rows = '<div class="empty">No selected items.</div>'
+        rows = render_empty_state(dump_dir)
+    status = load_pipeline_status(dump_dir) or {}
+    status_json = embed_json_in_html(status)
     path.write_text(
         f"""<!doctype html>
 <html lang="fa" dir="rtl">
@@ -520,7 +552,107 @@ def write_html_report(path: Path, selected_items) -> None:
       border-radius: 8px;
       padding: 24px;
       direction: ltr;
+      text-align: left;
+      line-height: 1.6;
     }}
+    .empty-actions {{
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }}
+    .error-list {{
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: #912018;
+      font-size: 13px;
+    }}
+    .error-list li {{ margin: 4px 0; }}
+    .pipeline-stats {{
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .toolbar {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      direction: ltr;
+      text-align: left;
+    }}
+    .toolbar-note {{
+      color: var(--muted);
+      font-size: 13px;
+      margin-left: auto;
+    }}
+    .controls {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      direction: ltr;
+      text-align: left;
+    }}
+    .controls-group {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      width: 100%;
+    }}
+    .controls-label {{
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      min-width: 52px;
+    }}
+    .btn {{
+      appearance: none;
+      border: 1px solid #c9c9c9;
+      background: #fafafa;
+      color: #222;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1.2;
+    }}
+    .btn:hover:not(:disabled) {{ background: #f0f0f0; }}
+    .btn:disabled {{ opacity: 0.55; cursor: wait; }}
+    .btn-primary {{
+      background: #0e7490;
+      border-color: #0e7490;
+      color: #fff;
+    }}
+    .btn-primary:hover:not(:disabled) {{ background: #0b5f74; }}
+    .btn-danger {{
+      background: #b42318;
+      border-color: #b42318;
+      color: #fff;
+    }}
+    .btn-danger:hover:not(:disabled) {{ background: #912018; }}
+    .status-banner {{
+      display: none;
+      margin-bottom: 14px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      direction: ltr;
+      text-align: left;
+      font-size: 13px;
+    }}
+    .status-banner.visible {{ display: block; }}
+    .status-banner.ok {{ background: #ecfdf3; border: 1px solid #abefc6; color: #067647; }}
+    .status-banner.error {{ background: #fef3f2; border: 1px solid #fecdca; color: #b42318; }}
+    .status-banner.warn {{ background: #fffaeb; border: 1px solid #fedf89; color: #b54708; }}
     @media (max-width: 760px) {{
       .page {{ padding: 14px; }}
       .row {{ grid-template-columns: 1fr; }}
@@ -531,8 +663,12 @@ def write_html_report(path: Path, selected_items) -> None:
 <body>
   <main class="page">
     <h1>RoozVan Pipeline Preview</h1>
+    {render_control_toolbar()}
+    <div id="status-banner" class="status-banner" role="status"></div>
     {rows}
   </main>
+  <script id="pipeline-status" type="application/json">{status_json}</script>
+  {control_panel_script()}
 </body>
 </html>
 """,
@@ -594,16 +730,37 @@ def render_instagram_row(dump_dir: Path, item) -> str:
         <div class="path">rss_source: {source_url}</div>
         <div class="path">article: {article_url}</div>
         <div class="path">{image_path_text}</div>
+        {render_story_overlay_text(item) if is_story else ""}
+        {render_row_controls(item)}
       </aside>
     </section>
     """
 
 
+def render_story_overlay_text(item) -> str:
+    caption = item.evaluation.get("post_caption")
+    if not isinstance(caption, dict):
+        return ""
+    headline = html.escape(str(caption.get("image_headline_fa") or "")).replace("\n", " · ")
+    subline = html.escape(str(caption.get("image_subline_fa") or "")).replace("\n", " · ")
+    category = html.escape(str(caption.get("category_label_fa") or ""))
+    if not headline and not subline:
+        return '<div class="path">story overlay: not generated yet</div>'
+    badge = f"[{category}] " if category else ""
+    return (
+        f'<div class="path">story overlay: {badge}{headline}'
+        f'{(" — " + subline) if subline else ""}</div>'
+    )
+
+
 def render_media(dump_dir: Path, image_path: str | None) -> str:
     if not image_path:
         return '<div class="missing">Image not generated yet</div>'
-    relative_path = html.escape(relative_asset_path(dump_dir, Path(image_path)))
-    return f'<img class="media" src="{relative_path}" alt="">'
+    asset_path = Path(image_path)
+    resolved = asset_path if asset_path.is_file() else Path.cwd() / asset_path
+    relative_path = html.escape(relative_asset_path(dump_dir, asset_path))
+    version = f"?v={int(resolved.stat().st_mtime)}" if resolved.is_file() else ""
+    return f'<img class="media" src="{relative_path}{version}" alt="">'
 
 
 def carousel_count_label(image_paths: list[str] | None, carousel_post: dict | None) -> str:
@@ -612,7 +769,7 @@ def carousel_count_label(image_paths: list[str] | None, carousel_post: dict | No
     slides = (carousel_post or {}).get("slides") or []
     if slides:
         return f"{len(slides)} slides · text preview (images not generated yet)"
-    return "carousel · caption skipped for review (use --generate-carousel-content)"
+    return "carousel · text not generated yet"
 
 
 def render_carousel_review_note(item, caption: str, slide_text: str) -> str:
@@ -622,8 +779,8 @@ def render_carousel_review_note(item, caption: str, slide_text: str) -> str:
     return (
         '<div class="slide-text-list">'
         '<div class="slide-text"><strong>Review</strong>'
-        "<div>Carousel caption/slides skipped in this pipeline run for speed.</div>"
-        f'<div class="slide-body">{angle or "Use --generate-carousel-content on the next run, or add slides before generating images."}</div>'
+        "<div>Carousel caption/slides were not generated in this pipeline run.</div>"
+        f'<div class="slide-body">{angle or "Re-run with text generation enabled, or regenerate text from the control panel."}</div>'
         "</div></div>"
     )
 
@@ -662,6 +819,271 @@ def render_carousel_media(dump_dir: Path, image_paths: list[str] | None) -> str:
 
 def relative_asset_path(from_dir: Path, asset_path: Path) -> str:
     return os.path.relpath(asset_path, from_dir).replace(os.sep, "/")
+
+
+def render_control_toolbar() -> str:
+    return """
+    <div class="toolbar">
+      <button class="btn btn-primary" type="button" data-action="reingest">Reingest RSS</button>
+      <span class="toolbar-note">Fetch feeds, score, and refresh preview (no images).</span>
+    </div>
+    """
+
+
+def render_empty_state(dump_dir: Path) -> str:
+    status = load_pipeline_status(dump_dir)
+    stats_html = ""
+    errors_html = ""
+    if has_pipeline_run(status):
+        stats_bits = []
+        if status.get("extracted_count") is not None:
+            stats_bits.append(f"extracted {status.get('extracted_count', 0)}")
+        if status.get("scored_count") is not None:
+            stats_bits.append(f"scored {status.get('scored_count', 0)}")
+        if status.get("selected_count") is not None:
+            stats_bits.append(f"selected {status.get('selected_count', 0)}")
+        if stats_bits:
+            stats_html = f'<div class="pipeline-stats">Last run: {html.escape(", ".join(stats_bits))}</div>'
+
+        errors = status.get("errors") or []
+        error_count = int(status.get("error_count") or len(errors))
+        if errors:
+            items = "".join(f"<li>{html.escape(str(error))}</li>" for error in errors[:8])
+            more = ""
+            if error_count > 8:
+                more = f"<li>…and {error_count - 8} more (see status.json)</li>"
+            errors_html = f"<ul class=\"error-list\">{items}{more}</ul>"
+
+    return f"""
+    <div class="empty">
+      <strong>No selected items yet.</strong>
+      <div>Use <strong>Reingest RSS</strong> above to fetch feeds and run the editorial pipeline.</div>
+      {stats_html}
+      {errors_html}
+    </div>
+    """
+
+
+def render_row_controls(item) -> str:
+    source_index = int(item.source_index)
+    selected_format = item.format_selected or "unknown"
+    groups: list[str] = []
+
+    if selected_format in {"story", "post", "carousel_post"}:
+        groups.append(
+            _control_group(
+                "Text",
+                _button("↻ Regenerate text", "regenerate-text", source_index),
+            )
+        )
+
+    if selected_format == "story":
+        groups.append(
+            _control_group(
+                "Image",
+                _button("↻ Story image", "regenerate-image", source_index),
+            )
+        )
+    elif selected_format == "post":
+        groups.append(
+            _control_group(
+                "Image",
+                _button("↻ Post image", "regenerate-image", source_index),
+            )
+        )
+    elif selected_format == "carousel_post":
+        slides = (item.evaluation.get("carousel_post") or {}).get("slides") or []
+        image_paths = item.item.carousel_image_paths or []
+        slide_count = max(len(slides), len(image_paths))
+        image_buttons = "".join(
+            _button(
+                f"↻ Slide {index} image",
+                "regenerate-image",
+                source_index,
+                slide=index,
+            )
+            for index in range(1, slide_count + 1)
+        )
+        if image_buttons:
+            groups.append(_control_group("Images", image_buttons))
+
+    groups.append(
+        _control_group(
+            "Publish",
+            f'<button class="btn btn-danger" type="button" data-action="publish" data-source-index="{source_index}">Post to Instagram</button>',
+        )
+    )
+
+    return f'<div class="controls" data-source-index="{source_index}">{"".join(groups)}</div>'
+
+
+def _control_group(label: str, buttons_html: str) -> str:
+    return f'<div class="controls-group"><span class="controls-label">{html.escape(label)}</span>{buttons_html}</div>'
+
+
+def _button(
+    label: str,
+    action: str,
+    source_index: int,
+    *,
+    target: str | None = None,
+    slide: int | None = None,
+    title: str | None = None,
+) -> str:
+    attrs = [
+        'class="btn"',
+        'type="button"',
+        f'data-action="{html.escape(action)}"',
+        f'data-source-index="{source_index}"',
+    ]
+    if target:
+        attrs.append(f'data-target="{html.escape(target)}"')
+    if slide is not None:
+        attrs.append(f'data-slide="{slide}"')
+    if title:
+        attrs.append(f'title="{html.escape(title)}"')
+    return f"<button {' '.join(attrs)}>{html.escape(label)}</button>"
+
+
+def control_panel_script() -> str:
+    return """
+<script>
+(() => {
+  const banner = document.getElementById("status-banner");
+  let busy = false;
+
+  if (window.location.protocol === "file:") {
+    banner.textContent = "Open this page through the control panel server: http://127.0.0.1:8765/ (buttons do not work from a local file).";
+    banner.className = "status-banner visible error";
+    return;
+  }
+
+  function setStatus(message, kind) {
+    banner.textContent = message;
+    banner.className = "status-banner visible " + (kind || "ok");
+  }
+
+  function formatPipelineStatus(status) {
+    if (!status) return "";
+    const bits = [];
+    if (status.extracted_count != null) bits.push("extracted " + status.extracted_count);
+    if (status.scored_count != null) bits.push("scored " + status.scored_count);
+    if (status.selected_count != null) bits.push("selected " + status.selected_count);
+    return bits.join(", ");
+  }
+
+  function showPipelineStatus(status) {
+    if (!status || !status.completed_at) return;
+    const summary = formatPipelineStatus(status);
+    const errors = status.errors || [];
+    if (errors.length) {
+      const preview = errors.slice(0, 3).join(" | ");
+      const suffix = status.error_count > 3 ? " (+" + (status.error_count - 3) + " more)" : "";
+      setStatus((summary ? summary + ". " : "") + preview + suffix, "warn");
+      return;
+    }
+    if (status.selected_count === 0 && summary) {
+      setStatus(summary + ". No items selected yet — try Reingest RSS.", "warn");
+    }
+  }
+
+  function loadEmbeddedStatus() {
+    const node = document.getElementById("pipeline-status");
+    if (!node || !node.textContent) return null;
+    try {
+      return JSON.parse(node.textContent);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function setBusy(nextBusy) {
+    busy = nextBusy;
+    document.querySelectorAll("button").forEach((button) => {
+      button.disabled = nextBusy;
+    });
+  }
+
+  async function callApi(path, payload) {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || ("Request failed (" + response.status + ")"));
+    }
+    return data;
+  }
+
+  async function handleAction(button) {
+    if (busy) return;
+    const action = button.dataset.action;
+    const sourceIndex = button.dataset.sourceIndex ? Number(button.dataset.sourceIndex) : null;
+    const target = button.dataset.target || null;
+    const slide = button.dataset.slide ? Number(button.dataset.slide) : null;
+
+    setBusy(true);
+    setStatus("Working… this can take a minute.", "ok");
+    try {
+      if (action === "reingest") {
+        const result = await callApi("/api/reingest", {});
+        if (result.error_count) {
+          const preview = (result.errors || []).slice(0, 2).join(" | ");
+          const suffix = result.error_count > 2 ? " (+" + (result.error_count - 2) + " more)" : "";
+          setStatus(
+            "Reingest finished with " + result.error_count + " warning(s): " + preview + suffix + " Refreshing…",
+            "warn"
+          );
+        } else {
+          setStatus("Reingest complete (" + result.selected_count + " items). Refreshing…", "ok");
+        }
+      } else if (action === "regenerate-text") {
+        const result = await callApi("/api/regenerate-text", {
+          source_index: sourceIndex,
+        });
+        const warnings = result.warnings || [];
+        if (warnings.length) {
+          setStatus(
+            "Text updated with warnings: " + warnings.slice(0, 2).join(" | ") + ". Refreshing…",
+            "warn"
+          );
+        } else {
+          setStatus("Text updated. Refreshing…", "ok");
+        }
+      } else if (action === "regenerate-image") {
+        await callApi("/api/regenerate-image", {
+          source_index: sourceIndex,
+          slide: slide,
+        });
+        setStatus("Image updated. Refreshing…", "ok");
+      } else if (action === "publish") {
+        const result = await callApi("/api/publish", { source_index: sourceIndex });
+        setStatus("Published to Instagram. media_id=" + result.publish.media_id, "ok");
+        setBusy(false);
+        return;
+      } else {
+        throw new Error("Unknown action: " + action);
+      }
+      window.location.reload();
+    } catch (error) {
+      setStatus(error.message || String(error), "error");
+      setBusy(false);
+    }
+  }
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+    event.preventDefault();
+    handleAction(button);
+  });
+
+  showPipelineStatus(loadEmbeddedStatus());
+})();
+</script>
+"""
 
 
 def print_timing_summary(stage_timings: list[tuple[str, float]], total_elapsed: float, *, file=sys.stdout) -> None:

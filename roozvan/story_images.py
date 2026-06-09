@@ -7,6 +7,7 @@ import concurrent.futures
 import json
 import os
 import re
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -17,11 +18,13 @@ from typing import Any
 from openrouter_client import OpenRouterClient, OpenRouterError, load_default_env_files
 from roozvan.logo_overlay import DEFAULT_LOGO_PATH, apply_logo_overlay
 from roozvan.models import NewsItem, ScoredItem
+from roozvan.text_overlay import OverlayText, render_overlay
 
 
-DEFAULT_STORY_IMAGE_MODEL = "google/gemini-3-pro-image-preview"
-# Latest Gemini Pro image preview on the Generative Language API (Nano Banana Pro).
-DEFAULT_GEMINI_STORY_IMAGE_MODEL = "gemini-3-pro-image-preview"
+DEFAULT_STORY_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview"
+# Latest Gemini Flash image preview on the Generative Language API (Nano Banana 2).
+DEFAULT_GEMINI_STORY_IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+DEFAULT_STORY_IMAGE_PROVIDER = "openrouter"
 DEFAULT_OPENROUTER_IMAGE_SIZE = "1K"
 OPENROUTER_IMAGE_OUTPUT_MODALITIES = ["image"]
 # Cap completion tokens so providers stay on the 1K image tier and skip long text/refinement.
@@ -36,7 +39,7 @@ IMAGE_ONLY_SYSTEM_PROMPT = (
 def openrouter_image_max_tokens(model: str, max_tokens: int | None = None) -> int | None:
     if max_tokens is not None:
         return max_tokens
-    if "gemini-3-pro-image" in model:
+    if "gemini-3-pro-image" in model or "gemini-3.1-flash-image" in model:
         return GEMINI_PRO_IMAGE_MAX_TOKENS
     return DEFAULT_OPENROUTER_IMAGE_MAX_TOKENS
 GROK_IMAGINE_SUPPORTED_ASPECT_RATIOS = {
@@ -55,6 +58,109 @@ GROK_IMAGINE_SUPPORTED_ASPECT_RATIOS = {
     "2:1",
     "auto",
 }
+
+
+def story_background_path_for(scored_item: ScoredItem, output_dir: Path, *, extension: str = "jpg") -> Path:
+    return output_dir / f"{story_image_filename_stem(scored_item)}-bg.{extension}"
+
+
+def story_final_path_for(scored_item: ScoredItem, output_dir: Path, *, extension: str = "jpg") -> Path:
+    return output_dir / f"{story_image_filename_stem(scored_item)}.{extension}"
+
+
+def existing_image_path(raw: str | Path | None) -> Path | None:
+    if not raw:
+        return None
+    path = Path(raw)
+    candidates = [path]
+    if not path.is_absolute():
+        candidates.append(Path.cwd() / path)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def ensure_story_background_path(scored_item: ScoredItem, output_dir: Path) -> Path:
+    """Return the text-free background, copying a legacy story image when needed."""
+    existing_bg = existing_image_path(scored_item.item.story_image_background_path)
+    if existing_bg is not None:
+        return existing_bg
+
+    for ext in ("jpg", "jpeg", "png", "webp"):
+        candidate = story_background_path_for(scored_item, output_dir, extension=ext)
+        if candidate.is_file():
+            return candidate.resolve()
+
+    final_path = existing_image_path(scored_item.item.story_image_path)
+    if final_path is not None:
+        extension = final_path.suffix.lstrip(".") or "jpg"
+        bg_path = story_background_path_for(scored_item, output_dir, extension=extension)
+        bg_path.parent.mkdir(parents=True, exist_ok=True)
+        if not bg_path.is_file():
+            shutil.copyfile(final_path, bg_path)
+        return bg_path.resolve()
+
+    raise ValueError("No story background saved. Regenerate the story image first.")
+
+
+def story_overlay_text_from_item(scored_item: ScoredItem) -> OverlayText | None:
+    caption = scored_item.evaluation.get("post_caption")
+    if not isinstance(caption, dict):
+        return None
+    headline = str(caption.get("image_headline_fa") or "").strip()
+    if not headline:
+        return None
+    return OverlayText(
+        kicker=str(caption.get("category_label_fa") or "").strip(),
+        title=headline,
+        body=str(caption.get("image_subline_fa") or "").strip(),
+    )
+
+
+def composite_story_image_from_background(
+    scored_item: ScoredItem,
+    background_path: Path,
+    output_path: Path,
+    *,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
+) -> Path:
+    overlay = story_overlay_text_from_item(scored_item)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if overlay is None:
+        shutil.copyfile(background_path, output_path)
+    else:
+        render_overlay(background_path, output_path, overlay)
+    if apply_logo_overlay_enabled:
+        apply_logo_overlay(output_path, logo_path=logo_path)
+    return output_path
+
+
+def refresh_story_image_overlay(
+    scored_item: ScoredItem,
+    *,
+    output_dir: Path,
+    apply_logo_overlay_enabled: bool = True,
+    logo_path: Path = DEFAULT_LOGO_PATH,
+) -> tuple[Path, Path]:
+    if story_overlay_text_from_item(scored_item) is None:
+        raise ValueError("Story overlay text is missing. Regenerate text first.")
+
+    background_path = ensure_story_background_path(scored_item, output_dir)
+    existing_final = existing_image_path(scored_item.item.story_image_path)
+    if existing_final is not None:
+        output_path = existing_final
+    else:
+        output_path = story_final_path_for(scored_item, output_dir)
+    composite_story_image_from_background(
+        scored_item,
+        background_path,
+        output_path,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
+    )
+    return output_path, background_path
 
 
 def build_story_image_prompt(prompt_template: str, item: NewsItem) -> str:
@@ -76,7 +182,7 @@ def generate_story_images_for_scored_items(
     *,
     output_dir: Path,
     model: str = DEFAULT_STORY_IMAGE_MODEL,
-    provider: str = "gemini",
+    provider: str = DEFAULT_STORY_IMAGE_PROVIDER,
     max_tokens: int | None = 12000,
     workers: int = 4,
     apply_logo_overlay_enabled: bool = True,
@@ -89,7 +195,7 @@ def generate_story_images_for_scored_items(
     def generate_indexed_image(index: int, scored_item: ScoredItem) -> tuple[int, ScoredItem]:
         if scored_item.format_selected != "story":
             return index, scored_item
-        path = generate_story_image(
+        background_path, final_path = generate_story_image(
             scored_item,
             prompt_template,
             client,
@@ -100,7 +206,11 @@ def generate_story_images_for_scored_items(
             apply_logo_overlay_enabled=apply_logo_overlay_enabled,
             logo_path=logo_path,
         )
-        item = replace(scored_item.item, story_image_path=str(path))
+        item = replace(
+            scored_item.item,
+            story_image_background_path=str(background_path),
+            story_image_path=str(final_path),
+        )
         return index, replace(scored_item, item=item)
 
     max_workers = max(1, min(workers, len(items) or 1))
@@ -140,11 +250,11 @@ def generate_story_image(
     *,
     output_dir: Path,
     model: str = DEFAULT_STORY_IMAGE_MODEL,
-    provider: str = "gemini",
+    provider: str = DEFAULT_STORY_IMAGE_PROVIDER,
     max_tokens: int | None = 12000,
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
-) -> Path:
+) -> tuple[Path, Path]:
     prompt = build_story_image_prompt(prompt_template, scored_item.item)
     if provider == "gemini":
         return generate_story_image_with_gemini(
@@ -176,8 +286,17 @@ def generate_story_image(
 
     mime, payload = parse_data_url(image_url)
     extension = extension_for_mime_type(mime)
-    output_path = output_dir / f"{story_image_filename_stem(scored_item)}.{extension}"
-    output_path.write_bytes(base64.b64decode(payload))
+    background_path = story_background_path_for(scored_item, output_dir, extension=extension)
+    background_path.write_bytes(base64.b64decode(payload))
+
+    final_path = story_final_path_for(scored_item, output_dir, extension="jpg")
+    composite_story_image_from_background(
+        scored_item,
+        background_path,
+        final_path,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
+    )
 
     summary_path = output_dir / f"{story_image_filename_stem(scored_item)}.response_summary.json"
     summary_path.write_text(
@@ -186,7 +305,8 @@ def generate_story_image(
                 "model": model,
                 "source_index": scored_item.source_index,
                 "title": scored_item.item.title,
-                "story_image_path": str(output_path),
+                "story_image_background_path": str(background_path),
+                "story_image_path": str(final_path),
                 "usage": response.get("usage"),
                 "id": response.get("id"),
                 "assistant_content": message.get("content"),
@@ -196,12 +316,7 @@ def generate_story_image(
         ),
         encoding="utf-8",
     )
-    _finalize_story_image(
-        output_path,
-        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
-        logo_path=logo_path,
-    )
-    return output_path
+    return background_path, final_path
 
 
 def generate_story_image_with_gemini(
@@ -213,14 +328,23 @@ def generate_story_image_with_gemini(
     timeout: int = 300,
     apply_logo_overlay_enabled: bool = True,
     logo_path: Path = DEFAULT_LOGO_PATH,
-) -> Path:
+) -> tuple[Path, Path]:
     response = post_gemini_image_request(prompt, model=model, timeout=timeout)
     inline_data, assistant_text = extract_gemini_inline_image(response)
     mime = inline_data["mime_type"]
     payload = inline_data["data"]
     extension = extension_for_mime_type(mime)
-    output_path = output_dir / f"{story_image_filename_stem(scored_item)}.{extension}"
-    output_path.write_bytes(base64.b64decode(payload))
+    background_path = story_background_path_for(scored_item, output_dir, extension=extension)
+    background_path.write_bytes(base64.b64decode(payload))
+
+    final_path = story_final_path_for(scored_item, output_dir, extension="jpg")
+    composite_story_image_from_background(
+        scored_item,
+        background_path,
+        final_path,
+        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
+        logo_path=logo_path,
+    )
 
     summary_path = output_dir / f"{story_image_filename_stem(scored_item)}.response_summary.json"
     summary_path.write_text(
@@ -230,7 +354,8 @@ def generate_story_image_with_gemini(
                 "model": model,
                 "source_index": scored_item.source_index,
                 "title": scored_item.item.title,
-                "story_image_path": str(output_path),
+                "story_image_background_path": str(background_path),
+                "story_image_path": str(final_path),
                 "usage": response.get("usageMetadata"),
                 "assistant_content": assistant_text,
             },
@@ -239,22 +364,7 @@ def generate_story_image_with_gemini(
         ),
         encoding="utf-8",
     )
-    _finalize_story_image(
-        output_path,
-        apply_logo_overlay_enabled=apply_logo_overlay_enabled,
-        logo_path=logo_path,
-    )
-    return output_path
-
-
-def _finalize_story_image(
-    output_path: Path,
-    *,
-    apply_logo_overlay_enabled: bool,
-    logo_path: Path,
-) -> None:
-    if apply_logo_overlay_enabled:
-        apply_logo_overlay(output_path, logo_path=logo_path)
+    return background_path, final_path
 
 
 def post_gemini_image_request(prompt: str, *, model: str, timeout: int) -> dict[str, Any]:

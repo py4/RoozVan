@@ -17,8 +17,11 @@ class NewsItem:
     article_content: str | None = None
     article_readable_without_js: bool | None = None
     story_image_path: str | None = None
+    story_image_background_path: str | None = None
     post_image_path: str | None = None
+    post_image_background_path: str | None = None
     carousel_image_paths: list[str] | None = None
+    carousel_image_background_paths: list[str] | None = None
     post_caption_fa: str | None = None
 
     @classmethod
@@ -33,8 +36,11 @@ class NewsItem:
             article_content=optional_text(data.get("article_content")),
             article_readable_without_js=optional_bool(data.get("article_readable_without_js")),
             story_image_path=optional_text(data.get("story_image_path")),
+            story_image_background_path=optional_text(data.get("story_image_background_path")),
             post_image_path=optional_text(data.get("post_image_path")),
+            post_image_background_path=optional_text(data.get("post_image_background_path")),
             carousel_image_paths=optional_text_list(data.get("carousel_image_paths")),
+            carousel_image_background_paths=optional_text_list(data.get("carousel_image_background_paths")),
             post_caption_fa=optional_text(data.get("post_caption_fa")),
         )
 
@@ -49,8 +55,11 @@ class NewsItem:
             "article_content": self.article_content,
             "article_readable_without_js": self.article_readable_without_js,
             "story_image_path": self.story_image_path,
+            "story_image_background_path": self.story_image_background_path,
             "post_image_path": self.post_image_path,
+            "post_image_background_path": self.post_image_background_path,
             "carousel_image_paths": self.carousel_image_paths,
+            "carousel_image_background_paths": self.carousel_image_background_paths,
             "post_caption_fa": self.post_caption_fa,
         }
 

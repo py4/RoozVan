@@ -15,6 +15,7 @@ from roozvan.post_content import generate_post_images_for_scored_items
 from roozvan.story_images import (
     DEFAULT_GEMINI_STORY_IMAGE_MODEL,
     DEFAULT_STORY_IMAGE_MODEL,
+    DEFAULT_STORY_IMAGE_PROVIDER,
     generate_story_images_for_scored_items,
 )
 from run_pipeline import write_html_report, write_json
@@ -65,8 +66,8 @@ def main() -> int:
     parser.add_argument(
         "--story-image-provider",
         choices=("openrouter", "gemini"),
-        default="gemini",
-        help="Image provider for generated assets.",
+        default=DEFAULT_STORY_IMAGE_PROVIDER,
+        help="Image provider for generated assets (default: OpenRouter).",
     )
     parser.add_argument(
         "--story-image-model",
@@ -138,7 +139,7 @@ def main() -> int:
 
     if post_items:
         image_prompt_template = Path("prompts/post_image_generation.md").read_text(encoding="utf-8")
-        carousel_image_prompt_template = Path("prompts/carousel_image_generation.md").read_text(
+        carousel_image_prompt_template = Path("prompts/carousel_image_background_generation.md").read_text(
             encoding="utf-8"
         )
         generated_posts = generate_post_images_for_scored_items(
